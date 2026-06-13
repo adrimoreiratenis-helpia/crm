@@ -15,6 +15,30 @@ function getNsBase() {
   return `https://api.tiendanube.com/v1/${NS_STORE_ID}`;
 }
 
+// ─── Helper: parse seguro de campos JSON guardados no SQLite ────────────────
+// Lida com: array já parseado, string JSON normal, string JSON com escape
+// duplo (bug histórico), null/undefined, ou string vazia.
+// SEMPRE retorna um array (ou [] em caso de falha).
+function parseJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  if (value == null) return [];
+  let v = value;
+  // Tenta desserializar até 3 vezes (cobre double/triple-encoding antigo)
+  for (let i = 0; i < 3; i++) {
+    if (typeof v !== 'string') return Array.isArray(v) ? v : [];
+    const trimmed = v.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed;
+      v = parsed; // pode ser string novamente (double-encoded) → tenta de novo
+    } catch (_) {
+      return [];
+    }
+  }
+  return [];
+}
+
 // ─── Helper: chamada autenticada à API da Nuvemshop ─────────────────────────
 async function nsRequest(method, endpoint, body = null) {
   if (!NS_ACCESS_TOKEN || !NS_STORE_ID) {
@@ -45,29 +69,36 @@ async function syncProdutoParaNuvemshop(db, produtoId) {
   if (!produto) throw new Error('Produto não encontrado');
 
   const estoque = db.prepare('SELECT * FROM estoque WHERE produto_id=?').all(produtoId);
-  const imagens = JSON.parse(produto.imagens || '[]');
+  const imagens = parseJsonArray(produto.imagens);
 
   // ─── Remove duplicados e valores vazios de tamanhos/cores ───────────────
   // Evita o erro "Variant values should not be repeated" da Nuvemshop,
-  // que ocorre quando o array tem o mesmo valor repetido (ex: ["38","38","39"]).
+  // que ocorre quando o array tem o mesmo valor repetido (ex: ["38","38","39"])
+  // ou quando o atributo tem um único valor repetido em todas as variantes.
   const tamanhos = [...new Set(
-    JSON.parse(produto.tamanhos || '[]').map(t => String(t).trim()).filter(Boolean)
+    parseJsonArray(produto.tamanhos).map(t => String(t).trim()).filter(Boolean)
   )];
   const cores = [...new Set(
-    JSON.parse(produto.cores || '[]').map(c => String(c).trim()).filter(Boolean)
+    parseJsonArray(produto.cores).map(c => String(c).trim()).filter(Boolean)
   )];
 
   const variants = [];
   for (const tam of tamanhos) {
     for (const cor of cores) {
       const estoqueItem = estoque.find(e => e.tamanho === tam && e.cor === cor);
+      const attributes = [];
+      // A Nuvemshop rejeita um atributo cujo valor é idêntico em TODAS as
+      // variantes (ex: produto com só 1 cor). Nesse caso, omitimos o atributo.
+      if (tamanhos.length > 1) attributes.push({ name: 'Tamanho', value: tam });
+      if (cores.length > 1)    attributes.push({ name: 'Cor', value: cor });
       variants.push({
-        price: produto.preco,
+        price: String(produto.preco),
         stock_management: true,
         stock: estoqueItem ? estoqueItem.quantidade : 0,
-        attributes: [
-          { name: 'Tamanho', value: tam },
-          { name: 'Cor', value: cor },
+        ...(attributes.length ? { attributes } : {}),
+        values: [
+          ...(tamanhos.length > 1 ? [{ pt: tam }] : []),
+          ...(cores.length > 1 ? [{ pt: cor }] : []),
         ],
       });
     }
@@ -76,7 +107,7 @@ async function syncProdutoParaNuvemshop(db, produtoId) {
   const payload = {
     name: { pt: produto.nome },
     description: { pt: produto.descricao || '' },
-    variants: variants.length ? variants : [{ price: produto.preco, stock: 0 }],
+    variants: variants.length ? variants : [{ price: String(produto.preco), stock: 0 }],
     published: produto.ativo === 1,
   };
 
@@ -86,7 +117,7 @@ async function syncProdutoParaNuvemshop(db, produtoId) {
     nsProduct = await nsRequest('PUT', `/products/${nsId}`, payload);
   } else {
     nsProduct = await nsRequest('POST', '/products', payload);
-    db.prepare('UPDATE produtos SET ns_id=? WHERE id=?').run(nsProduct.id, produtoId);
+    db.prepare('UPDATE produtos SET ns_id=? WHERE id=?').run(String(nsProduct.id), produtoId);
   }
 
   if (!nsId && imagens.length) {
@@ -100,12 +131,145 @@ async function syncProdutoParaNuvemshop(db, produtoId) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+//  SINCRONIZAÇÃO DE PRODUTOS: Nuvemshop → CRM (importação)
+// ════════════════════════════════════════════════════════════════════════════
+async function importarProdutosDaNuvemshop(db) {
+  const resultados = [];
+  let page = 1;
+  const perPage = 50;
+
+  while (true) {
+    const produtosNs = await nsRequest('GET', `/products?per_page=${perPage}&page=${page}`);
+    if (!produtosNs.length) break;
+
+    for (const p of produtosNs) {
+      try {
+        const nome = (p.name && (p.name.pt || p.name.es || p.name.en || Object.values(p.name)[0])) || 'Sem nome';
+        const descricao = (p.description && (p.description.pt || p.description.es || p.description.en || Object.values(p.description)[0])) || '';
+        const variants = p.variants || [];
+        const preco = variants.length ? parseFloat(variants[0].price) || 0 : 0;
+
+        // Extrai tamanhos/cores únicos a partir das variantes
+        const tamanhosSet = new Set();
+        const coresSet = new Set();
+        for (const v of variants) {
+          (v.values || []).forEach((val, idx) => {
+            const texto = val.pt || val.es || val.en || Object.values(val)[0];
+            if (!texto) return;
+            // Heurística: primeiro valor = tamanho, segundo = cor
+            // (segue a mesma convenção usada no envio CRM → Nuvemshop)
+            if (idx === 0) tamanhosSet.add(String(texto).trim());
+            else coresSet.add(String(texto).trim());
+          });
+          (v.attributes || []).forEach(attr => {
+            const valor = attr.value || attr.pt || attr.es || attr.en;
+            if (!valor) return;
+            const nomeAttr = (attr.name || '').toLowerCase();
+            if (nomeAttr.includes('tam')) tamanhosSet.add(String(valor).trim());
+            else if (nomeAttr.includes('cor') || nomeAttr.includes('color')) coresSet.add(String(valor).trim());
+          });
+        }
+
+        const tamanhos = [...tamanhosSet];
+        const cores = [...coresSet];
+        const imagens = (p.images || []).map(img => img.src).filter(Boolean);
+        const modelo = `NS-${p.id}`;
+        const ns_id = String(p.id);
+
+        // Verifica se já existe pelo ns_id
+        const existente = db.prepare('SELECT id FROM produtos WHERE ns_id=?').get(ns_id);
+
+        if (existente) {
+          db.prepare(
+            'UPDATE produtos SET nome=?,descricao=?,preco=?,tamanhos=?,cores=?,imagens=?,ativo=? WHERE id=?'
+          ).run(
+            nome, descricao, preco,
+            JSON.stringify(tamanhos), JSON.stringify(cores), JSON.stringify(imagens),
+            p.published ? 1 : 0, existente.id
+          );
+          resultados.push({ ns_id, produto_id: existente.id, ok: true, acao: 'atualizado' });
+        } else {
+          // Garante modelo único (caso já exista um produto com esse código)
+          let modeloFinal = modelo;
+          let tentativa = 1;
+          while (db.prepare('SELECT id FROM produtos WHERE modelo=?').get(modeloFinal)) {
+            modeloFinal = `${modelo}-${tentativa++}`;
+          }
+          const r = db.prepare(
+            'INSERT INTO produtos (nome,modelo,descricao,preco,tamanhos,cores,imagens,ativo,ns_id) VALUES (?,?,?,?,?,?,?,?,?)'
+          ).run(
+            nome, modeloFinal, descricao, preco,
+            JSON.stringify(tamanhos), JSON.stringify(cores), JSON.stringify(imagens),
+            p.published ? 1 : 0, ns_id
+          );
+          resultados.push({ ns_id, produto_id: r.lastInsertRowid, ok: true, acao: 'criado' });
+
+          // Importa estoque das variantes
+          const novoId = r.lastInsertRowid;
+          for (const v of variants) {
+            let tam = null, cor = null;
+            (v.values || []).forEach((val, idx) => {
+              const texto = val.pt || val.es || val.en || Object.values(val)[0];
+              if (!texto) return;
+              if (idx === 0) tam = String(texto).trim();
+              else cor = String(texto).trim();
+            });
+            if (tam && cor) {
+              db.prepare('INSERT OR IGNORE INTO estoque (produto_id,tamanho,cor,quantidade) VALUES (?,?,?,?)')
+                .run(novoId, tam, cor, v.stock || 0);
+            }
+          }
+        }
+      } catch (e) {
+        resultados.push({ ns_id: p.id, ok: false, erro: e.message });
+      }
+    }
+
+    if (produtosNs.length < perPage) break;
+    page++;
+    if (page > 20) break; // limite de segurança (1000 produtos)
+  }
+
+  return resultados;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  CORREÇÃO AUTOMÁTICA DE DADOS CORROMPIDOS (double-encoded JSON)
+// ════════════════════════════════════════════════════════════════════════════
+// Roda na inicialização do servidor. Re-normaliza tamanhos/cores/imagens/videos
+// de todos os produtos, garantindo que sejam arrays JSON simples (single-encoded).
+function corrigirProdutosCorrompidos(db) {
+  const produtos = db.prepare('SELECT id, tamanhos, cores, imagens, videos FROM produtos').all();
+  const stmt = db.prepare('UPDATE produtos SET tamanhos=?,cores=?,imagens=?,videos=? WHERE id=?');
+  let corrigidos = 0;
+
+  for (const p of produtos) {
+    const tamanhos = JSON.stringify([...new Set(parseJsonArray(p.tamanhos).map(v => String(v).trim()).filter(Boolean))]);
+    const cores    = JSON.stringify([...new Set(parseJsonArray(p.cores).map(v => String(v).trim()).filter(Boolean))]);
+    const imagens  = JSON.stringify(parseJsonArray(p.imagens));
+    const videos   = JSON.stringify(parseJsonArray(p.videos));
+
+    if (tamanhos !== p.tamanhos || cores !== p.cores || imagens !== p.imagens || videos !== p.videos) {
+      stmt.run(tamanhos, cores, imagens, videos, p.id);
+      corrigidos++;
+    }
+  }
+
+  if (corrigidos > 0) {
+    console.log(`🔧 Correção automática: ${corrigidos} produto(s) com dados normalizados.`);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 //  SETUP DE ROTAS
 // ════════════════════════════════════════════════════════════════════════════
 function setupNuvemshop(app, db) {
 
   // Migração: adiciona coluna ns_id se não existir
   try { db.exec('ALTER TABLE produtos ADD COLUMN ns_id TEXT'); } catch (_) {}
+
+  // Corrige dados corrompidos de versões anteriores (double-encoded JSON)
+  corrigirProdutosCorrompidos(db);
 
   // ════════════════════════════════════════════════════════════════════════
   //  OAUTH — Recebe o code e troca pelo Access Token
@@ -171,6 +335,7 @@ function setupNuvemshop(app, db) {
     console.log(`[NS Webhook] ${topic} | store: ${store_id} | id: ${id}`);
 
     try {
+      // ── Novo pedido / pagamento ──
       if (topic === 'orders/created' || topic === 'orders/paid') {
         const order = await nsRequest('GET', `/orders/${id}`);
         const cliente = order.contact_name || 'Cliente Nuvemshop';
@@ -222,7 +387,7 @@ function setupNuvemshop(app, db) {
         const pedido = db.prepare('SELECT * FROM pedidos_online WHERE mp_id=?').get(String(id));
         if (pedido && pedido.status !== 'pago') {
           db.prepare("UPDATE pedidos_online SET status='pago' WHERE mp_id=?").run(String(id));
-          const itens = JSON.parse(pedido.itens || '[]');
+          const itens = parseJsonArray(pedido.itens);
           for (const item of itens) {
             const v = db.prepare(
               'INSERT INTO vendas (cliente_nome,cliente_tel,cliente_end,produto_nome,tamanho,cor,quantidade,preco_unit,total,pagamento,status) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
@@ -241,12 +406,57 @@ function setupNuvemshop(app, db) {
         db.prepare("UPDATE pedidos_online SET status='cancelado' WHERE mp_id=?").run(String(id));
       }
 
+      // ── Produto criado/atualizado direto na Nuvemshop → importa para o CRM ──
+      if (topic === 'products/created' || topic === 'products/updated') {
+        try {
+          const p = await nsRequest('GET', `/products/${id}`);
+          const nome = (p.name && (p.name.pt || p.name.es || p.name.en || Object.values(p.name)[0])) || 'Sem nome';
+          const descricao = (p.description && (p.description.pt || p.description.es || p.description.en || Object.values(p.description)[0])) || '';
+          const variants = p.variants || [];
+          const preco = variants.length ? parseFloat(variants[0].price) || 0 : 0;
+
+          const tamanhosSet = new Set();
+          const coresSet = new Set();
+          for (const v of variants) {
+            (v.values || []).forEach((val, idx) => {
+              const texto = val.pt || val.es || val.en || Object.values(val)[0];
+              if (!texto) return;
+              if (idx === 0) tamanhosSet.add(String(texto).trim());
+              else coresSet.add(String(texto).trim());
+            });
+          }
+          const tamanhos = [...tamanhosSet];
+          const cores = [...coresSet];
+          const imagens = (p.images || []).map(img => img.src).filter(Boolean);
+          const ns_id = String(p.id);
+
+          const existente = db.prepare('SELECT id FROM produtos WHERE ns_id=?').get(ns_id);
+          if (existente) {
+            db.prepare(
+              'UPDATE produtos SET nome=?,descricao=?,preco=?,tamanhos=?,cores=?,imagens=?,ativo=? WHERE id=?'
+            ).run(nome, descricao, preco, JSON.stringify(tamanhos), JSON.stringify(cores), JSON.stringify(imagens), p.published ? 1 : 0, existente.id);
+          } else {
+            const modelo = `NS-${p.id}`;
+            let modeloFinal = modelo, tentativa = 1;
+            while (db.prepare('SELECT id FROM produtos WHERE modelo=?').get(modeloFinal)) {
+              modeloFinal = `${modelo}-${tentativa++}`;
+            }
+            db.prepare(
+              'INSERT INTO produtos (nome,modelo,descricao,preco,tamanhos,cores,imagens,ativo,ns_id) VALUES (?,?,?,?,?,?,?,?,?)'
+            ).run(nome, modeloFinal, descricao, preco, JSON.stringify(tamanhos), JSON.stringify(cores), JSON.stringify(imagens), p.published ? 1 : 0, ns_id);
+          }
+          console.log(`[NS Webhook] Produto ${ns_id} sincronizado do Nuvemshop → CRM`);
+        } catch (e) {
+          console.error('[NS Webhook] Erro ao importar produto:', e.message);
+        }
+      }
+
     } catch (e) {
       console.error('[NS Webhook] Erro:', e.message);
     }
   });
 
-  // ── Sincronizar produto manualmente ──────────────────────────────────────
+  // ── Sincronizar produto manualmente (CRM → Nuvemshop) ────────────────────
   app.post('/api/nuvemshop/sync/produto/:id', async (req, res) => {
     try {
       const result = await syncProdutoParaNuvemshop(db, req.params.id);
@@ -256,7 +466,7 @@ function setupNuvemshop(app, db) {
     }
   });
 
-  // ── Sincronizar todos os produtos ─────────────────────────────────────────
+  // ── Sincronizar todos os produtos (CRM → Nuvemshop) ──────────────────────
   app.post('/api/nuvemshop/sync/produtos', async (req, res) => {
     const produtos = db.prepare('SELECT id FROM produtos WHERE ativo=1').all();
     const resultados = [];
@@ -269,6 +479,16 @@ function setupNuvemshop(app, db) {
       }
     }
     res.json(resultados);
+  });
+
+  // ── Importar produtos da Nuvemshop → CRM ─────────────────────────────────
+  app.post('/api/nuvemshop/sync/importar', async (req, res) => {
+    try {
+      const resultados = await importarProdutosDaNuvemshop(db);
+      res.json(resultados);
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // ── Listar webhooks registrados ──────────────────────────────────────────
@@ -309,6 +529,16 @@ function setupNuvemshop(app, db) {
     });
   });
 
+  // ── Rota manual de correção de dados (caso precise rodar de novo) ────────
+  app.post('/api/nuvemshop/corrigir-dados', (req, res) => {
+    try {
+      corrigirProdutosCorrompidos(db);
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // ════════════════════════════════════════════════════════════════════════
   //  LGPD (obrigatório pela Nuvemshop)
   // ════════════════════════════════════════════════════════════════════════
@@ -321,7 +551,7 @@ function setupNuvemshop(app, db) {
 
 // ─── Registra webhooks na Nuvemshop ─────────────────────────────────────────
 async function registrarWebhooks(BASE_URL) {
-  const eventos = ['orders/created', 'orders/paid', 'orders/fulfilled', 'orders/cancelled'];
+  const eventos = ['orders/created', 'orders/paid', 'orders/fulfilled', 'orders/cancelled', 'products/created', 'products/updated'];
   for (const event of eventos) {
     try {
       await nsRequest('POST', '/webhooks', {
@@ -335,4 +565,4 @@ async function registrarWebhooks(BASE_URL) {
   }
 }
 
-module.exports = { setupNuvemshop, syncProdutoParaNuvemshop };
+module.exports = { setupNuvemshop, syncProdutoParaNuvemshop, importarProdutosDaNuvemshop, parseJsonArray };
