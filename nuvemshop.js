@@ -44,10 +44,18 @@ async function syncProdutoParaNuvemshop(db, produtoId) {
   const produto = db.prepare('SELECT * FROM produtos WHERE id=?').get(produtoId);
   if (!produto) throw new Error('Produto não encontrado');
 
-  const estoque  = db.prepare('SELECT * FROM estoque WHERE produto_id=?').all(produtoId);
-  const imagens  = JSON.parse(produto.imagens || '[]');
-  const tamanhos = JSON.parse(produto.tamanhos || '[]');
-  const cores    = JSON.parse(produto.cores || '[]');
+  const estoque = db.prepare('SELECT * FROM estoque WHERE produto_id=?').all(produtoId);
+  const imagens = JSON.parse(produto.imagens || '[]');
+
+  // ─── Remove duplicados e valores vazios de tamanhos/cores ───────────────
+  // Evita o erro "Variant values should not be repeated" da Nuvemshop,
+  // que ocorre quando o array tem o mesmo valor repetido (ex: ["38","38","39"]).
+  const tamanhos = [...new Set(
+    JSON.parse(produto.tamanhos || '[]').map(t => String(t).trim()).filter(Boolean)
+  )];
+  const cores = [...new Set(
+    JSON.parse(produto.cores || '[]').map(c => String(c).trim()).filter(Boolean)
+  )];
 
   const variants = [];
   for (const tam of tamanhos) {
