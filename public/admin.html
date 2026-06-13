@@ -207,6 +207,9 @@ th.sort-desc::after{content:' ▼';opacity:1;color:var(--ouro-d)}
   </div>
   <div class="nav-sep"></div>
   <div class="nav-lbl">Sistema</div>
+  <div class="nav-item" data-sec="nuvemshop" onclick="navTo(this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Nuvemshop
+  </div>
   <div class="nav-item" data-sec="backup" onclick="navTo(this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>Backup
   </div>
@@ -237,6 +240,10 @@ th.sort-desc::after{content:' ▼';opacity:1;color:var(--ouro-d)}
     <div class="sbar">
       <input type="text" id="s-prod" placeholder="🔍 Buscar..." oninput="loadProdutos()">
       <button class="btn btn-p" onclick="abrirProd()">＋ Novo produto</button>
+      <button class="btn btn-s" onclick="syncTodosProdutos()" id="btn-sync-all" title="Sincronizar todos os produtos com a Nuvemshop">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Sincronizar com Nuvemshop
+      </button>
     </div>
     <div class="tcard">
       <table><thead><tr>
@@ -311,6 +318,50 @@ th.sort-desc::after{content:' ▼';opacity:1;color:var(--ouro-d)}
         <th>Pedido</th><th>Cliente</th><th>Produto</th><th>Rastreio</th><th>Progresso</th><th></th>
       </tr></thead>
       <tbody id="tb-env"></tbody></table>
+    </div>
+  </section>
+
+  <!-- NUVEMSHOP -->
+  <section id="sec-nuvemshop" class="sec">
+    <div class="pg-title">Nuvemshop</div>
+    <div class="pg-sub">Integração com a loja virtual · Store ID: 7841993</div>
+
+    <div class="bk-card">
+      <h3>🔗 Status da Conexão</h3>
+      <p id="ns-status-txt" style="margin-bottom:12px">Verificando...</p>
+      <div class="bk-btns">
+        <button class="btn btn-s" onclick="checkNsStatus()">🔄 Verificar status</button>
+      </div>
+    </div>
+
+    <div class="bk-card">
+      <h3>📦 Sincronizar Produtos</h3>
+      <p>Envia todos os produtos ativos do CRM para a Nuvemshop. Produtos já sincronizados serão atualizados.</p>
+      <div id="ns-sync-result" style="margin-bottom:10px"></div>
+      <div class="bk-btns">
+        <button class="btn btn-p" onclick="syncTodosProdutos()" id="btn-sync-ns">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Sincronizar todos os produtos
+        </button>
+      </div>
+    </div>
+
+    <div class="bk-card">
+      <h3>🪝 Webhooks</h3>
+      <p>Os webhooks recebem eventos da Nuvemshop (novos pedidos, pagamentos) e atualizam o CRM automaticamente.</p>
+      <div id="ns-webhooks-list" style="margin-bottom:10px;font-size:12px;color:var(--texto-m)"></div>
+      <div class="bk-btns">
+        <button class="btn btn-s" onclick="listarWebhooks()">📋 Listar webhooks</button>
+        <button class="btn btn-s" onclick="registrarWebhooks()">＋ Registrar webhooks</button>
+      </div>
+    </div>
+
+    <div class="bk-card">
+      <h3>📋 Últimos pedidos na Nuvemshop</h3>
+      <div id="ns-pedidos-list"></div>
+      <div class="bk-btns" style="margin-top:10px">
+        <button class="btn btn-s" onclick="listarPedidosNs()">🔄 Carregar pedidos</button>
+      </div>
     </div>
   </section>
 
@@ -1088,6 +1139,80 @@ async function salvarEnv() {
     observacao: document.getElementById('env-obs').value
   }});
   fecharModal('m-env'); loadEnvios();
+}
+
+// ─── NUVEMSHOP ────────────────────────────────────────────────────────────────
+async function checkNsStatus() {
+  try {
+    const s = await api('/api/nuvemshop/status');
+    const el = document.getElementById('ns-status-txt');
+    if (s.autenticado) {
+      el.innerHTML = `<span class="badge bv">✅ Conectado</span> Store ID: <b>${s.store_id}</b>`;
+    } else {
+      el.innerHTML = `<span class="badge br">❌ Não autenticado</span> — Instale o app CRM Helpia na Nuvemshop.`;
+    }
+  } catch(e) {
+    document.getElementById('ns-status-txt').innerHTML = `<span class="badge br">Erro: ${e.message}</span>`;
+  }
+}
+
+async function syncTodosProdutos() {
+  const btn = document.getElementById('btn-sync-ns') || document.getElementById('btn-sync-all');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Sincronizando...'; }
+  const el = document.getElementById('ns-sync-result');
+  if (el) el.innerHTML = '<div class="alert baz">Sincronizando produtos...</div>';
+  try {
+    const res = await api('/api/nuvemshop/sync/produtos', {method:'POST'});
+    const ok  = res.filter(r => r.ok).length;
+    const err = res.filter(r => !r.ok).length;
+    if (el) el.innerHTML = `<div class="alert ${err?'ba':'a-ok'}">✅ ${ok} produto(s) sincronizado(s)${err?` · ⚠️ ${err} erro(s)`:''}</div>`;
+    alert(`Sincronização concluída!\n✅ ${ok} ok  ⚠️ ${err} erros`);
+  } catch(e) {
+    if (el) el.innerHTML = `<div class="alert a-err">Erro: ${e.message}</div>`;
+    alert('Erro ao sincronizar: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Sincronizar todos os produtos'; }
+  }
+}
+
+async function listarWebhooks() {
+  try {
+    const res = await api('/api/nuvemshop/webhooks');
+    const el = document.getElementById('ns-webhooks-list');
+    if (!res.length) { el.innerHTML = 'Nenhum webhook registrado.'; return; }
+    el.innerHTML = res.map(w => `<div style="padding:4px 0;border-bottom:1px solid var(--borda-m)">
+      <b>${w.event}</b> → <span style="font-size:11px">${w.url}</span>
+    </div>`).join('');
+  } catch(e) { alert('Erro: ' + e.message); }
+}
+
+async function registrarWebhooks() {
+  if (!confirm('Registrar webhooks na Nuvemshop?')) return;
+  try {
+    const res = await api('/api/nuvemshop/webhooks/registrar', {method:'POST'});
+    const ok = res.filter(r => r.ok).length;
+    alert(`${ok} webhook(s) registrado(s)!`);
+    listarWebhooks();
+  } catch(e) { alert('Erro: ' + e.message); }
+}
+
+async function listarPedidosNs() {
+  const el = document.getElementById('ns-pedidos-list');
+  el.innerHTML = '<div class="alert baz">Carregando...</div>';
+  try {
+    const res = await api('/api/nuvemshop/pedidos');
+    if (!res.length) { el.innerHTML = 'Nenhum pedido encontrado.'; return; }
+    el.innerHTML = `<table style="width:100%;font-size:12px">
+      <thead><tr><th>ID</th><th>Cliente</th><th>Total</th><th>Status</th><th>Data</th></tr></thead>
+      <tbody>${res.slice(0,20).map(o => `<tr>
+        <td>#${o.number||o.id}</td>
+        <td>${o.contact_name||'–'}</td>
+        <td>R$ ${parseFloat(o.total||0).toFixed(2)}</td>
+        <td><span class="badge ${o.payment_status==='paid'?'bv':o.payment_status==='pending'?'ba':'bc'}">${o.payment_status||'–'}</span></td>
+        <td>${o.created_at?new Date(o.created_at).toLocaleDateString('pt-BR'):'–'}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  } catch(e) { el.innerHTML = `<div class="alert a-err">Erro: ${e.message}</div>`; }
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
