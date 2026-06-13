@@ -263,6 +263,35 @@ function setupNuvemshop(app, db) {
     res.json(resultados);
   });
 
+  // ── Listar webhooks registrados ──────────────────────────────────────────
+  app.get('/api/nuvemshop/webhooks', async (req, res) => {
+    try {
+      res.json(await nsRequest('GET', '/webhooks'));
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ── Registrar webhooks ────────────────────────────────────────────────────
+  app.post('/api/nuvemshop/webhooks/registrar', async (req, res) => {
+    try {
+      await registrarWebhooks(process.env.BASE_URL);
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ── Buscar pedidos da Nuvemshop ───────────────────────────────────────────
+  app.get('/api/nuvemshop/pedidos', async (req, res) => {
+    try {
+      const orders = await nsRequest('GET', '/orders?per_page=50&status=any');
+      res.json(orders);
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // ── Status da autenticação ────────────────────────────────────────────────
   app.get('/api/nuvemshop/status', (req, res) => {
     res.json({
