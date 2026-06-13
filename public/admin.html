@@ -83,6 +83,8 @@ tr:hover td{background:var(--creme)}
 .btn-sm{padding:4px 10px;font-size:12px;border-radius:6px}
 .btn-d{background:var(--verm-bg);color:var(--verm);border:1px solid #F7C1C1}
 .btn-d:hover{background:#F7C1C1}
+.btn-ns{background:linear-gradient(135deg,#0e4fa8,#185FA5);color:#fff}
+.btn-ns:hover{opacity:.9}
 
 .moverlay{display:none;position:fixed;inset:0;background:rgba(92,66,10,.4);z-index:999;align-items:center;justify-content:center}
 .moverlay.open{display:flex}
@@ -102,7 +104,6 @@ textarea{resize:vertical;min-height:70px}
 .chip-add{display:flex;gap:6px;margin-top:6px}
 .chip-add input{max-width:110px;padding:4px 8px}
 
-/* ── GALERIA ── */
 .img-section{border:1px solid var(--borda-m);border-radius:10px;overflow:hidden}
 .img-section-hdr{background:var(--creme);padding:10px 14px;font-size:12px;font-weight:700;color:var(--texto-m);border-bottom:1px solid var(--borda-m);display:flex;align-items:center;justify-content:space-between}
 .img-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px;background:var(--branco)}
@@ -116,7 +117,6 @@ textarea{resize:vertical;min-height:70px}
 .img-add-area span{display:block;font-size:20px;margin-bottom:4px}
 #img-file-input{display:none}
 
-/* ── VÍDEOS ── */
 .vid-section{border:1px solid var(--borda-m);border-radius:10px;overflow:hidden;margin-top:12px}
 .vid-list{padding:12px;display:flex;flex-direction:column;gap:8px}
 .vid-item{display:flex;align-items:center;gap:10px;background:var(--creme);border-radius:8px;padding:10px 12px;border:1px solid var(--borda-m)}
@@ -130,7 +130,6 @@ textarea{resize:vertical;min-height:70px}
 .vid-add-form input{flex:1;font-size:12px;padding:7px 10px}
 #vid-file-input{display:none}
 
-/* ── BANNERS ── */
 .banner-preview{width:100%;aspect-ratio:16/5;background:var(--creme-m);border-radius:8px;overflow:hidden;margin-bottom:8px;border:1px solid var(--borda-m)}
 .banner-preview img{width:100%;height:100%;object-fit:cover;display:block}
 .banner-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:4px}
@@ -160,11 +159,10 @@ textarea{resize:vertical;min-height:70px}
 .bk-card p{font-size:13px;color:var(--texto-m);margin-bottom:12px}
 .bk-btns{display:flex;gap:10px;flex-wrap:wrap}
 
-th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
-th.sortable:hover{color:var(--ouro-d)}
-th.sortable::after{content:' ⇅';opacity:.35;font-size:10px}
-th.sort-asc::after{content:' ▲';opacity:1;color:var(--ouro-d)}
-th.sort-desc::after{content:' ▼';opacity:1;color:var(--ouro-d)}
+/* NS status pill inline na tabela */
+.ns-sync{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.ns-sync.ok{background:var(--azul-bg);color:var(--azul)}
+.ns-sync.no{background:var(--creme-m);color:var(--texto-m)}
 </style>
 </head>
 <body>
@@ -226,6 +224,7 @@ th.sort-desc::after{content:' ▼';opacity:1;color:var(--ouro-d)}
       <div class="stat"><div class="stat-lbl">Pedidos Online</div><div class="stat-val" id="st-ped">–</div></div>
       <div class="stat"><div class="stat-lbl">Faturamento</div><div class="stat-val" id="st-fat">–</div></div>
       <div class="stat"><div class="stat-lbl">Envios pendentes</div><div class="stat-val" id="st-env">–</div></div>
+      <div class="stat"><div class="stat-lbl">Sincronizados NS</div><div class="stat-val" id="st-ns">–</div><div class="stat-hint">produtos na Nuvemshop</div></div>
     </div>
     <div class="tcard">
       <div class="tcard-hdr"><span class="tcard-title">Vendas recentes</span></div>
@@ -240,14 +239,17 @@ th.sort-desc::after{content:' ▼';opacity:1;color:var(--ouro-d)}
     <div class="sbar">
       <input type="text" id="s-prod" placeholder="🔍 Buscar..." oninput="loadProdutos()">
       <button class="btn btn-p" onclick="abrirProd()">＋ Novo produto</button>
-      <button class="btn btn-s" onclick="syncTodosProdutos()" id="btn-sync-all" title="Sincronizar todos os produtos com a Nuvemshop">
+      <button class="btn btn-s" onclick="syncTodosProdutos()" id="btn-sync-all" title="Sincronizar todos com Nuvemshop">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        Sincronizar com Nuvemshop
+        Sync todos → NS
+      </button>
+      <button class="btn btn-ns" onclick="importarDaNuvemshop()" id="btn-importar" title="Importar produtos da Nuvemshop para o CRM">
+        ⬇️ Importar NS → CRM
       </button>
     </div>
     <div class="tcard">
       <table><thead><tr>
-        <th>ID</th><th>Produto</th><th>Modelo</th><th>Mídia</th><th>Tamanhos</th><th>Preço</th><th>Status</th><th></th>
+        <th>ID</th><th>Produto</th><th>Modelo</th><th>Mídia</th><th>Tamanhos</th><th>Preço</th><th>Status</th><th>Nuvemshop</th><th></th>
       </tr></thead>
       <tbody id="tb-prods"></tbody></table>
     </div>
@@ -324,7 +326,7 @@ th.sort-desc::after{content:' ▼';opacity:1;color:var(--ouro-d)}
   <!-- NUVEMSHOP -->
   <section id="sec-nuvemshop" class="sec">
     <div class="pg-title">Nuvemshop</div>
-    <div class="pg-sub">Integração com a loja virtual · Store ID: 7841993</div>
+    <div class="pg-sub">Integração com a loja virtual · Store ID: <span id="ns-store-id-lbl">–</span></div>
 
     <div class="bk-card">
       <h3>🔗 Status da Conexão</h3>
@@ -335,8 +337,8 @@ th.sort-desc::after{content:' ▼';opacity:1;color:var(--ouro-d)}
     </div>
 
     <div class="bk-card">
-      <h3>📦 Sincronizar Produtos</h3>
-      <p>Envia todos os produtos ativos do CRM para a Nuvemshop. Produtos já sincronizados serão atualizados.</p>
+      <h3>📦 Sincronizar CRM → Nuvemshop</h3>
+      <p>Envia todos os produtos ativos do CRM para a Nuvemshop. Produtos já sincronizados serão atualizados automaticamente.</p>
       <div id="ns-sync-result" style="margin-bottom:10px"></div>
       <div class="bk-btns">
         <button class="btn btn-p" onclick="syncTodosProdutos()" id="btn-sync-ns">
@@ -347,8 +349,19 @@ th.sort-desc::after{content:' ▼';opacity:1;color:var(--ouro-d)}
     </div>
 
     <div class="bk-card">
+      <h3>⬇️ Importar Nuvemshop → CRM</h3>
+      <p>Importa todos os produtos da sua loja Nuvemshop para o CRM. Produtos já existentes serão atualizados. Novos serão criados com código NS-{id}.</p>
+      <div id="ns-import-result" style="margin-bottom:10px"></div>
+      <div class="bk-btns">
+        <button class="btn btn-ns" onclick="importarDaNuvemshop()" id="btn-import-ns">
+          ⬇️ Importar produtos da Nuvemshop
+        </button>
+      </div>
+    </div>
+
+    <div class="bk-card">
       <h3>🪝 Webhooks</h3>
-      <p>Os webhooks recebem eventos da Nuvemshop (novos pedidos, pagamentos) e atualizam o CRM automaticamente.</p>
+      <p>Os webhooks recebem eventos da Nuvemshop (novos pedidos, pagamentos, produtos) e atualizam o CRM automaticamente.</p>
       <div id="ns-webhooks-list" style="margin-bottom:10px;font-size:12px;color:var(--texto-m)"></div>
       <div class="bk-btns">
         <button class="btn btn-s" onclick="listarWebhooks()">📋 Listar webhooks</button>
@@ -385,16 +398,23 @@ th.sort-desc::after{content:' ▼';opacity:1;color:var(--ouro-d)}
       <div class="bk-btns"><a href="/api/backup/sql" class="btn btn-s">⬇️ Baixar .sql</a></div>
     </div>
     <div class="bk-card" style="border-color:var(--ouro)">
-      <h3>☁️ Variáveis de ambiente no Railway</h3>
-      <p>Configure no painel do Railway → Variables:</p>
+      <h3>☁️ Variáveis de ambiente (Railway / Render)</h3>
+      <p>Configure no painel do seu servidor → Variables:</p>
       <code style="display:block;background:var(--creme);padding:12px;border-radius:8px;font-size:12px;line-height:2">
         CLOUDINARY_CLOUD_NAME=seu_cloud_name<br>
         CLOUDINARY_API_KEY=sua_api_key<br>
         CLOUDINARY_API_SECRET=seu_api_secret<br>
         MP_ACCESS_TOKEN=seu_token_mercado_pago<br>
         BASE_URL=https://seudominio.com.br<br>
-        ADMIN_PASS=sua_senha_segura
+        ADMIN_PASS=sua_senha_segura<br>
+        <span style="color:var(--azul)">NS_APP_ID=seu_app_id_nuvemshop</span><br>
+        <span style="color:var(--azul)">NS_CLIENT_SECRET=seu_client_secret_nuvemshop</span><br>
+        <span style="color:var(--azul)">NS_ACCESS_TOKEN=token_obtido_apos_oauth</span><br>
+        <span style="color:var(--azul)">NS_STORE_ID=id_da_sua_loja_nuvemshop</span>
       </code>
+      <p style="margin-top:10px;font-size:12px;color:var(--texto-m)">
+        💡 O NS_ACCESS_TOKEN e NS_STORE_ID aparecem no console do servidor após instalar o app CRM Helpia na Nuvemshop. Copie-os e salve como variáveis de ambiente para que sobrevivam a reinicializações.
+      </p>
     </div>
   </section>
 
@@ -413,7 +433,7 @@ th.sort-desc::after{content:' ▼';opacity:1;color:var(--ouro-d)}
       <div class="fgrp"><label>Preço (R$) *</label><input type="number" id="p-preco" step="0.01"></div>
       <div class="fgrp full"><label>Descrição</label><textarea id="p-desc"></textarea></div>
       <div class="fgrp full">
-        <label>Tamanhos</label>
+        <label>Tamanhos <span style="font-size:11px;color:var(--texto-s);font-weight:400">(cada tamanho+cor = 1 variante na Nuvemshop)</span></label>
         <div class="chips" id="c-tam">
           <span class="chip" data-v="33">33</span><span class="chip" data-v="34">34</span>
           <span class="chip" data-v="35">35</span><span class="chip" data-v="36">36</span>
@@ -488,6 +508,10 @@ th.sort-desc::after{content:' ▼';opacity:1;color:var(--ouro-d)}
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
       <button class="btn btn-s" onclick="fecharModal('m-prod')">Cancelar</button>
       <button class="btn btn-p" onclick="salvarProd()">Salvar</button>
+      <button class="btn btn-ns" id="btn-sync-prod" style="display:none" onclick="syncProdutoAtual()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Sync NS
+      </button>
     </div>
   </div>
 </div>
@@ -621,7 +645,7 @@ function setStatus(ok, txt) {
   document.getElementById('db-txt').textContent = txt;
 }
 
-const loaders = { dashboard:loadDash, produtos:loadProdutos, estoque:loadEstoque, vendas:loadVendas, envios:loadEnvios, banners:loadBanners, 'pedidos-online':loadPedidosOnline };
+const loaders = { dashboard:loadDash, produtos:loadProdutos, estoque:loadEstoque, vendas:loadVendas, envios:loadEnvios, banners:loadBanners, 'pedidos-online':loadPedidosOnline, nuvemshop:loadNuvemshop };
 function navTo(el) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
@@ -691,6 +715,7 @@ async function loadDash() {
     document.getElementById('st-ped').textContent = d.pedidos_online;
     document.getElementById('st-fat').textContent = 'R$ '+Number(d.faturamento).toFixed(2);
     document.getElementById('st-env').textContent = d.envios_pendentes;
+    document.getElementById('st-ns').textContent = d.sincronizados_ns ?? '–';
     const eMap = {aguardando:'bc',preparando:'ba',enviado:'baz',entregue:'bv'};
     document.getElementById('tb-recentes').innerHTML = d.vendas_recentes.length
       ? d.vendas_recentes.map(v=>`<tr>
@@ -715,6 +740,10 @@ async function loadProdutos() {
     const vids = JSON.parse(p.videos||'[]');
     const tams = JSON.parse(p.tamanhos||'[]');
     const thumb = imgs[0] ? `<img class="td-thumb" src="${imgs[0]}" alt="">` : `<span class="td-thumb-placeholder">👟</span>`;
+    // Badge de sincronização com Nuvemshop
+    const nsBadge = p.ns_id
+      ? `<span class="ns-sync ok" title="NS ID: ${p.ns_id}">☁️ #${p.ns_id}</span>`
+      : `<span class="ns-sync no" title="Não sincronizado com Nuvemshop">– não sync</span>`;
     return `<tr>
       <td><code style="font-size:11px;background:var(--creme-m);padding:2px 6px;border-radius:4px">#${p.id}</code></td>
       <td class="td-prod"><div class="td-prod-inner">${thumb}<strong>${p.nome}</strong></div></td>
@@ -723,12 +752,16 @@ async function loadProdutos() {
       <td style="font-size:12px">${tams.slice(0,4).join(', ')}${tams.length>4?'…':''}</td>
       <td><strong>R$ ${Number(p.preco).toFixed(2)}</strong></td>
       <td>${p.ativo ? '<span class="badge bv">Ativo</span>' : '<span class="badge bc">Inativo</span>'}</td>
+      <td>${nsBadge}</td>
       <td><div style="display:flex;gap:4px">
-        <button class="btn btn-s btn-sm" onclick="editProd(${p.id})">✏️</button>
-        <button class="btn btn-d btn-sm" onclick="delProd(${p.id})">🗑️</button>
+        <button class="btn btn-s btn-sm" onclick="editProd(${p.id})" title="Editar">✏️</button>
+        <button class="btn btn-d btn-sm" onclick="delProd(${p.id})" title="Excluir">🗑️</button>
+        <button class="btn btn-ns btn-sm" onclick="syncUmProduto(${p.id})" title="Sincronizar com Nuvemshop">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
       </div></td>
     </tr>`;
-  }).join('') || '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--texto-m)">Nenhum produto</td></tr>';
+  }).join('') || '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--texto-m)">Nenhum produto</td></tr>';
 }
 
 let editingProdId = null;
@@ -744,6 +777,7 @@ function abrirProd() {
   document.getElementById('img-preview').innerHTML='';
   document.getElementById('vid-list').innerHTML='';
   document.getElementById('m-prod-alert').innerHTML='';
+  document.getElementById('btn-sync-prod').style.display='none';
   abrirModal('m-prod');
 }
 
@@ -761,6 +795,7 @@ async function editProd(id) {
   setChips('c-cor', JSON.parse(p.cores||'[]'));
   document.getElementById('fg-imgs').style.display='block';
   document.getElementById('fg-vids').style.display='block';
+  document.getElementById('btn-sync-prod').style.display='inline-flex';
   renderImgPreview(JSON.parse(p.imagens||'[]'), id);
   renderVidList(JSON.parse(p.videos||'[]'), id);
   document.getElementById('m-prod-alert').innerHTML='';
@@ -810,10 +845,27 @@ async function salvarProd() {
     document.getElementById('p-id').value = saved.id;
     document.getElementById('fg-imgs').style.display='block';
     document.getElementById('fg-vids').style.display='block';
+    document.getElementById('btn-sync-prod').style.display='inline-flex';
     renderImgPreview(JSON.parse(saved.imagens||'[]'), saved.id);
     renderVidList(JSON.parse(saved.videos||'[]'), saved.id);
     fecharModal('m-prod'); loadProdutos();
   } catch(e) { alertEl.innerHTML=`<div class="alert a-err">Erro: ${e.message}</div>`; }
+}
+
+// Sync produto individual a partir do modal
+async function syncProdutoAtual() {
+  const id = document.getElementById('p-id').value || editingProdId;
+  if (!id) { alert('Salve o produto primeiro.'); return; }
+  await syncUmProduto(id);
+}
+
+// Sync produto individual direto da linha da tabela
+async function syncUmProduto(id) {
+  try {
+    const r = await api(`/api/nuvemshop/sync/produto/${id}`, {method:'POST'});
+    alert(`✅ Produto sincronizado! NS ID: ${r.ns_id}`);
+    loadProdutos();
+  } catch(e) { alert('Erro ao sincronizar: ' + e.message); }
 }
 
 async function delProd(id) {
@@ -1142,14 +1194,21 @@ async function salvarEnv() {
 }
 
 // ─── NUVEMSHOP ────────────────────────────────────────────────────────────────
+async function loadNuvemshop() {
+  checkNsStatus();
+}
+
 async function checkNsStatus() {
   try {
     const s = await api('/api/nuvemshop/status');
     const el = document.getElementById('ns-status-txt');
+    const lbl = document.getElementById('ns-store-id-lbl');
     if (s.autenticado) {
-      el.innerHTML = `<span class="badge bv">✅ Conectado</span> Store ID: <b>${s.store_id}</b>`;
+      el.innerHTML = `<span class="badge bv">✅ Conectado</span> Store ID: <b>${s.store_id}</b> · Token presente: <b>sim</b>`;
+      if (lbl) lbl.textContent = s.store_id;
     } else {
-      el.innerHTML = `<span class="badge br">❌ Não autenticado</span> — Instale o app CRM Helpia na Nuvemshop.`;
+      el.innerHTML = `<span class="badge br">❌ Não autenticado</span> — Instale o app CRM Helpia na Nuvemshop e conclua o OAuth.`;
+      if (lbl) lbl.textContent = 'não conectado';
     }
   } catch(e) {
     document.getElementById('ns-status-txt').innerHTML = `<span class="badge br">Erro: ${e.message}</span>`;
@@ -1157,21 +1216,50 @@ async function checkNsStatus() {
 }
 
 async function syncTodosProdutos() {
-  const btn = document.getElementById('btn-sync-ns') || document.getElementById('btn-sync-all');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Sincronizando...'; }
+  const btns = ['btn-sync-ns','btn-sync-all'].map(id => document.getElementById(id)).filter(Boolean);
+  btns.forEach(b => { b.disabled=true; b.textContent='⏳ Sincronizando...'; });
   const el = document.getElementById('ns-sync-result');
-  if (el) el.innerHTML = '<div class="alert baz">Sincronizando produtos...</div>';
+  if (el) el.innerHTML = '<div class="alert baz">Sincronizando produtos com a Nuvemshop...</div>';
   try {
     const res = await api('/api/nuvemshop/sync/produtos', {method:'POST'});
     const ok  = res.filter(r => r.ok).length;
     const err = res.filter(r => !r.ok).length;
     if (el) el.innerHTML = `<div class="alert ${err?'ba':'a-ok'}">✅ ${ok} produto(s) sincronizado(s)${err?` · ⚠️ ${err} erro(s)`:''}</div>`;
     alert(`Sincronização concluída!\n✅ ${ok} ok  ⚠️ ${err} erros`);
+    loadProdutos();
   } catch(e) {
     if (el) el.innerHTML = `<div class="alert a-err">Erro: ${e.message}</div>`;
     alert('Erro ao sincronizar: ' + e.message);
   } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Sincronizar todos os produtos'; }
+    btns.forEach(b => {
+      b.disabled=false;
+      b.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Sync todos → NS';
+    });
+  }
+}
+
+async function importarDaNuvemshop() {
+  const btnNS = document.getElementById('btn-import-ns');
+  const btnProd = document.getElementById('btn-importar');
+  [btnNS, btnProd].filter(Boolean).forEach(b => { b.disabled=true; b.textContent='⏳ Importando...'; });
+  const el = document.getElementById('ns-import-result');
+  if (el) el.innerHTML = '<div class="alert baz">Importando produtos da Nuvemshop...</div>';
+  try {
+    const res = await api('/api/nuvemshop/sync/importar', {method:'POST'});
+    const criados = res.filter(r => r.ok && r.acao==='criado').length;
+    const atualizados = res.filter(r => r.ok && r.acao==='atualizado').length;
+    const erros = res.filter(r => !r.ok).length;
+    const msg = `✅ ${criados} criado(s), ${atualizados} atualizado(s)${erros?` · ⚠️ ${erros} erro(s)`:''}`;
+    if (el) el.innerHTML = `<div class="alert ${erros?'ba':'a-ok'}">${msg}</div>`;
+    alert(`Importação concluída!\n${msg}`);
+    loadProdutos();
+  } catch(e) {
+    if (el) el.innerHTML = `<div class="alert a-err">Erro: ${e.message}</div>`;
+    alert('Erro ao importar: ' + e.message);
+  } finally {
+    [btnNS, btnProd].filter(Boolean).forEach(b => {
+      b.disabled=false; b.textContent = b.id==='btn-import-ns' ? '⬇️ Importar produtos da Nuvemshop' : '⬇️ Importar NS → CRM';
+    });
   }
 }
 
@@ -1187,11 +1275,10 @@ async function listarWebhooks() {
 }
 
 async function registrarWebhooks() {
-  if (!confirm('Registrar webhooks na Nuvemshop?')) return;
+  if (!confirm('Registrar webhooks na Nuvemshop? (Webhooks existentes do mesmo evento podem gerar duplicatas — verifique antes.)')) return;
   try {
-    const res = await api('/api/nuvemshop/webhooks/registrar', {method:'POST'});
-    const ok = res.filter(r => r.ok).length;
-    alert(`${ok} webhook(s) registrado(s)!`);
+    await api('/api/nuvemshop/webhooks/registrar', {method:'POST'});
+    alert('Webhooks registrados!');
     listarWebhooks();
   } catch(e) { alert('Erro: ' + e.message); }
 }
