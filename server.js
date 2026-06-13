@@ -1,5 +1,6 @@
 const express = require('express');
 const Database = require('better-sqlite3');
+const { setupNuvemshop } = require('./nuvemshop');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -648,5 +649,8 @@ if (db.prepare('SELECT COUNT(*) as c FROM produtos').get().c === 0) {
      [p3.lastInsertRowid,'38','Branco',7],[p3.lastInsertRowid,'39','Rosa',3]].forEach(a => insEst.run(...a));
   })();
 }
+
+// ─── INTEGRAÇÃO NUVEMSHOP ────────────────────────────────────────────────────
+setupNuvemshop(app, db);
 
 app.listen(PORT, () => console.log(`✅ AdriMoreira rodando em http://localhost:${PORT}`));
