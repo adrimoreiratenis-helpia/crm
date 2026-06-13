@@ -156,6 +156,15 @@ const uploadImg    = multer({ storage: imgStorage,    limits: { fileSize: 5 * 10
 const uploadVideo  = multer({ storage: videoStorage,  limits: { fileSize: 80 * 1024 * 1024 } });
 const uploadBanner = multer({ storage: bannerStorage, limits: { fileSize: 8 * 1024 * 1024 } });
 
+// ─── Helper: sanitiza listas de tamanhos/cores ────────────────────────────────
+// Remove valores vazios, espaços extras e duplicados. Isso evita o erro
+// "Variant values should not be repeated" ao sincronizar com a Nuvemshop.
+function sanitizarLista(lista) {
+  return [...new Set(
+    (lista || []).map(v => String(v).trim()).filter(Boolean)
+  )];
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 //  PRODUTOS
 // ════════════════════════════════════════════════════════════════════════════
@@ -180,7 +189,7 @@ app.post('/api/produtos', (req, res) => {
   try {
     const r = db.prepare(
       'INSERT INTO produtos (nome,modelo,descricao,preco,tamanhos,cores,ativo) VALUES (?,?,?,?,?,?,?)'
-    ).run(nome, modelo, descricao || null, preco, JSON.stringify(tamanhos || []), JSON.stringify(cores || []), ativo ?? 1);
+    ).run(nome, modelo, descricao || null, preco, JSON.stringify(sanitizarLista(tamanhos)), JSON.stringify(sanitizarLista(cores)), ativo ?? 1);
     res.status(201).json(db.prepare('SELECT * FROM produtos WHERE id=?').get(r.lastInsertRowid));
   } catch (e) { res.status(409).json({ error: e.message }); }
 });
@@ -189,7 +198,7 @@ app.put('/api/produtos/:id', (req, res) => {
   const { nome, modelo, descricao, preco, tamanhos, cores, ativo } = req.body;
   db.prepare(
     'UPDATE produtos SET nome=?,modelo=?,descricao=?,preco=?,tamanhos=?,cores=?,ativo=? WHERE id=?'
-  ).run(nome, modelo, descricao || null, preco, JSON.stringify(tamanhos || []), JSON.stringify(cores || []), ativo ?? 1, req.params.id);
+  ).run(nome, modelo, descricao || null, preco, JSON.stringify(sanitizarLista(tamanhos)), JSON.stringify(sanitizarLista(cores)), ativo ?? 1, req.params.id);
   res.json(db.prepare('SELECT * FROM produtos WHERE id=?').get(req.params.id));
 });
 
