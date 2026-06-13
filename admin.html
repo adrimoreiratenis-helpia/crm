@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AdriMoreira Tênis – Admin</title>
+<style>
+:root {
+  --ouro:#D4AD6A; --ouro-l:#F5E9C8; --ouro-d:#8B6914; --ouro-dp:#5C420A;
+  --creme:#FAF6EE; --creme-m:#EDE5D0; --creme-d:#C9B88A;
+  --texto:#2C2410; --texto-m:#7A6535; --texto-s:#B0965A;
+  --borda:#D4AD6A44; --borda-m:#D4AD6A66;
+  --branco:#fff;
+  --verde:#3B6D11; --verde-bg:#EAF3DE;
+  --am:#854F0B; --am-bg:#FAEEDA;
+  --verm:#A32D2D; --verm-bg:#FCEBEB;
+  --azul:#185FA5; --azul-bg:#E6F1FB;
+  --r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--creme);color:var(--texto);font-size:14px}
+
+#hdr{
+  background:var(--branco);border-bottom:1px solid var(--borda-m);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;height:56px;position:sticky;top:0;z-index:100;
+  box-shadow:0 2px 8px rgba(139,105,20,.08)
+}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-img{height:36px;width:36px;object-fit:contain;border-radius:50%;border:2px solid var(--ouro-l)}
+.logo-txt{font-size:17px;font-weight:700;color:var(--ouro-dp)}
+.logo-txt span{color:var(--ouro-d)}
+#db-status{font-size:12px;color:var(--texto-m);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--creme-d)}
+.dot.ok{background:#3B6D11} .dot.err{background:var(--verm)}
+
+#wrap{display:flex;min-height:calc(100vh - 56px)}
+#sidebar{width:210px;flex-shrink:0;background:var(--branco);border-right:1px solid var(--borda-m);padding:16px 0}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;font-size:13px;color:var(--texto-m);transition:.1s;border-left:3px solid transparent}
+.nav-item svg{width:17px;height:17px;flex-shrink:0}
+.nav-item.active{color:var(--ouro-dp);background:var(--ouro-l);border-left-color:var(--ouro-d);font-weight:600}
+.nav-item:hover:not(.active){background:var(--creme-m)}
+.nav-sep{height:1px;background:var(--borda-m);margin:8px 16px}
+.nav-lbl{font-size:10px;font-weight:700;color:var(--texto-s);letter-spacing:1px;text-transform:uppercase;padding:8px 20px 4px}
+#content{flex:1;padding:24px;overflow-y:auto}
+
+.sec{display:none} .sec.active{display:block}
+.pg-title{font-size:20px;font-weight:700;margin-bottom:4px;color:var(--ouro-dp)}
+.pg-sub{font-size:13px;color:var(--texto-m);margin-bottom:20px}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+.stat{background:var(--branco);border:1px solid var(--borda-m);border-radius:var(--r);padding:14px 16px}
+.stat-lbl{font-size:11px;color:var(--texto-m);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.stat-val{font-size:26px;font-weight:700;margin:4px 0 2px;color:var(--ouro-dp)}
+.stat-hint{font-size:11px;color:var(--texto-s)}
+
+.tcard{background:var(--branco);border:1px solid var(--borda-m);border-radius:var(--r);overflow:hidden;margin-bottom:20px}
+.tcard-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--borda-m)}
+.tcard-title{font-weight:600;font-size:14px;color:var(--ouro-dp)}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:10px 14px;font-size:11px;font-weight:700;color:var(--texto-m);letter-spacing:.5px;text-transform:uppercase;background:var(--creme);border-bottom:1px solid var(--borda-m)}
+td{padding:10px 14px;border-bottom:1px solid var(--creme-m);font-size:13px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--creme)}
+.td-prod{white-space:nowrap}
+.td-prod-inner{display:inline-flex;align-items:center;gap:8px;vertical-align:middle}
+.td-thumb{width:36px;height:36px;flex-shrink:0;object-fit:cover;border-radius:6px;border:1px solid var(--borda-m);display:block}
+.td-thumb-placeholder{width:36px;height:36px;flex-shrink:0;background:var(--ouro-l);border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:18px}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.bv{background:var(--verde-bg);color:var(--verde)}
+.ba{background:var(--am-bg);color:var(--am)}
+.br{background:var(--verm-bg);color:var(--verm)}
+.baz{background:var(--azul-bg);color:var(--azul)}
+.bp{background:var(--ouro-l);color:var(--ouro-dp)}
+.bc{background:var(--creme-m);color:var(--texto-m)}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;transition:.15s}
+.btn-p{background:linear-gradient(135deg,var(--ouro-dp),var(--ouro-d));color:#fff}
+.btn-p:hover{background:linear-gradient(135deg,var(--ouro-d),var(--ouro))}
+.btn-s{background:var(--branco);border:1px solid var(--borda-m);color:var(--texto)}
+.btn-s:hover{background:var(--creme-m)}
+.btn-sm{padding:4px 10px;font-size:12px;border-radius:6px}
+.btn-d{background:var(--verm-bg);color:var(--verm);border:1px solid #F7C1C1}
+.btn-d:hover{background:#F7C1C1}
+
+.moverlay{display:none;position:fixed;inset:0;background:rgba(92,66,10,.4);z-index:999;align-items:center;justify-content:center}
+.moverlay.open{display:flex}
+.modal{background:var(--branco);border-radius:14px;padding:24px;width:600px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(92,66,10,.18)}
+.m-title{font-size:16px;font-weight:700;margin-bottom:16px;color:var(--ouro-dp)}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fgrp{display:flex;flex-direction:column;gap:4px}
+.fgrp.full{grid-column:1/-1}
+label{font-size:12px;font-weight:600;color:var(--texto-m)}
+input,select,textarea{padding:8px 10px;border:1px solid var(--borda-m);border-radius:7px;font-size:13px;color:var(--texto);background:var(--branco);outline:none;transition:border .15s;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--ouro-d)}
+textarea{resize:vertical;min-height:70px}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.chip{padding:4px 10px;border-radius:16px;font-size:12px;cursor:pointer;border:1px solid var(--borda-m);background:var(--branco);transition:.1s;user-select:none}
+.chip.sel{background:linear-gradient(135deg,var(--ouro-dp),var(--ouro-d));color:#fff;border-color:transparent}
+.chip-add{display:flex;gap:6px;margin-top:6px}
+.chip-add input{max-width:110px;padding:4px 8px}
+
+/* ── GALERIA ── */
+.img-section{border:1px solid var(--borda-m);border-radius:10px;overflow:hidden}
+.img-section-hdr{background:var(--creme);padding:10px 14px;font-size:12px;font-weight:700;color:var(--texto-m);border-bottom:1px solid var(--borda-m);display:flex;align-items:center;justify-content:space-between}
+.img-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px;background:var(--branco)}
+.img-item{position:relative;border-radius:8px;overflow:hidden;aspect-ratio:1/1;background:var(--creme-m);border:1px solid var(--borda-m)}
+.img-item img{width:100%;height:100%;object-fit:cover;display:block}
+.img-order{position:absolute;top:4px;left:4px;background:rgba(92,66,10,.75);color:#fff;border-radius:4px;font-size:10px;font-weight:700;padding:1px 5px;line-height:1.4}
+.img-del{position:absolute;top:4px;right:4px;background:rgba(163,45,45,.85);color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:.15s}
+.img-del:hover{background:var(--verm)}
+.img-add-area{border:2px dashed var(--borda-m);border-radius:8px;margin:0 12px 12px;padding:14px;text-align:center;cursor:pointer;transition:.15s;font-size:12px;color:var(--texto-m);background:var(--creme)}
+.img-add-area:hover{border-color:var(--ouro-d);color:var(--ouro-d);background:var(--ouro-l)}
+.img-add-area span{display:block;font-size:20px;margin-bottom:4px}
+#img-file-input{display:none}
+
+/* ── VÍDEOS ── */
+.vid-section{border:1px solid var(--borda-m);border-radius:10px;overflow:hidden;margin-top:12px}
+.vid-list{padding:12px;display:flex;flex-direction:column;gap:8px}
+.vid-item{display:flex;align-items:center;gap:10px;background:var(--creme);border-radius:8px;padding:10px 12px;border:1px solid var(--borda-m)}
+.vid-type{font-size:20px;flex-shrink:0}
+.vid-url{flex:1;font-size:12px;color:var(--texto-m);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vid-del{background:none;border:none;cursor:pointer;color:var(--verm);font-size:16px;flex-shrink:0}
+.vid-add-tabs{display:flex;gap:6px;padding:12px 12px 0}
+.vid-tab{padding:5px 12px;border-radius:16px;border:1px solid var(--borda-m);font-size:12px;cursor:pointer;background:var(--branco);color:var(--texto-m)}
+.vid-tab.active{background:var(--ouro-dp);color:#fff;border-color:transparent}
+.vid-add-form{padding:10px 12px 12px;display:flex;gap:8px}
+.vid-add-form input{flex:1;font-size:12px;padding:7px 10px}
+#vid-file-input{display:none}
+
+/* ── BANNERS ── */
+.banner-preview{width:100%;aspect-ratio:16/5;background:var(--creme-m);border-radius:8px;overflow:hidden;margin-bottom:8px;border:1px solid var(--borda-m)}
+.banner-preview img{width:100%;height:100%;object-fit:cover;display:block}
+.banner-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:4px}
+.banner-card{background:var(--branco);border:1px solid var(--borda-m);border-radius:var(--r);overflow:hidden}
+.banner-card-img{width:100%;aspect-ratio:16/5;background:var(--creme-m);background-size:cover;background-position:center}
+.banner-card-body{padding:12px}
+.banner-card-title{font-weight:600;font-size:14px;margin-bottom:4px}
+.banner-card-sub{font-size:12px;color:var(--texto-m);margin-bottom:10px}
+.banner-card-actions{display:flex;gap:6px}
+
+.alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px}
+.a-ok{background:var(--verde-bg);color:var(--verde)}
+.a-err{background:var(--verm-bg);color:var(--verm)}
+
+.sbar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.sbar input{max-width:260px} .sbar select{max-width:180px}
+
+.env-steps{display:flex}
+.env-step{flex:1;padding:5px 6px;font-size:10px;font-weight:600;text-align:center;background:var(--creme-m);color:var(--texto-m);border-right:2px solid var(--creme)}
+.env-step:first-child{border-radius:5px 0 0 5px}
+.env-step:last-child{border-radius:0 5px 5px 0;border-right:none}
+.env-step.done{background:var(--verde-bg);color:var(--verde)}
+.env-step.cur{background:linear-gradient(135deg,var(--ouro-dp),var(--ouro-d));color:#fff}
+
+.bk-card{background:var(--branco);border:1px solid var(--borda-m);border-radius:var(--r);padding:20px;margin-bottom:16px}
+.bk-card h3{font-size:14px;font-weight:700;margin-bottom:8px;color:var(--ouro-dp)}
+.bk-card p{font-size:13px;color:var(--texto-m);margin-bottom:12px}
+.bk-btns{display:flex;gap:10px;flex-wrap:wrap}
+
+th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+th.sortable:hover{color:var(--ouro-d)}
+th.sortable::after{content:' ⇅';opacity:.35;font-size:10px}
+th.sort-asc::after{content:' ▲';opacity:1;color:var(--ouro-d)}
+th.sort-desc::after{content:' ▼';opacity:1;color:var(--ouro-d)}
+</style>
+</head>
+<body>
+
+<header id="hdr">
+  <div class="logo">
+    <img class="logo-img" src="/assets/logo.jpeg" alt="AdriMoreira" onerror="this.style.display='none'">
+    <div class="logo-txt">Adri<span>Moreira</span> <span style="font-size:12px;font-weight:400;color:var(--texto-s)">Admin</span></div>
+  </div>
+  <div id="db-status"><div class="dot" id="dot"></div><span id="db-txt">Conectando...</span></div>
+</header>
+
+<div id="wrap">
+<nav id="sidebar">
+  <div class="nav-lbl">Principal</div>
+  <div class="nav-item active" data-sec="dashboard" onclick="navTo(this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard
+  </div>
+  <div class="nav-sep"></div>
+  <div class="nav-lbl">Catálogo</div>
+  <div class="nav-item" data-sec="produtos" onclick="navTo(this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v6c0 1.1.9 2 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Produtos
+  </div>
+  <div class="nav-item" data-sec="estoque" onclick="navTo(this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Estoque
+  </div>
+  <div class="nav-item" data-sec="banners" onclick="navTo(this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01"/></svg>Banners
+  </div>
+  <div class="nav-sep"></div>
+  <div class="nav-lbl">Vendas</div>
+  <div class="nav-item" data-sec="vendas" onclick="navTo(this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Vendas (CRM)
+  </div>
+  <div class="nav-item" data-sec="pedidos-online" onclick="navTo(this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>Pedidos Online
+  </div>
+  <div class="nav-item" data-sec="envios" onclick="navTo(this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Envios
+  </div>
+  <div class="nav-sep"></div>
+  <div class="nav-lbl">Sistema</div>
+  <div class="nav-item" data-sec="backup" onclick="navTo(this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>Backup
+  </div>
+</nav>
+
+<main id="content">
+
+  <!-- DASHBOARD -->
+  <section id="sec-dashboard" class="sec active">
+    <div class="pg-title">Dashboard</div><div class="pg-sub">Visão geral da loja</div>
+    <div class="stats">
+      <div class="stat"><div class="stat-lbl">Produtos ativos</div><div class="stat-val" id="st-prod">–</div></div>
+      <div class="stat"><div class="stat-lbl">Vendas CRM</div><div class="stat-val" id="st-vend">–</div></div>
+      <div class="stat"><div class="stat-lbl">Pedidos Online</div><div class="stat-val" id="st-ped">–</div></div>
+      <div class="stat"><div class="stat-lbl">Faturamento</div><div class="stat-val" id="st-fat">–</div></div>
+      <div class="stat"><div class="stat-lbl">Envios pendentes</div><div class="stat-val" id="st-env">–</div></div>
+    </div>
+    <div class="tcard">
+      <div class="tcard-hdr"><span class="tcard-title">Vendas recentes</span></div>
+      <table><thead><tr><th>Cliente</th><th>Produto</th><th>Valor</th><th>Envio</th><th>Data</th></tr></thead>
+      <tbody id="tb-recentes"></tbody></table>
+    </div>
+  </section>
+
+  <!-- PRODUTOS -->
+  <section id="sec-produtos" class="sec">
+    <div class="pg-title">Produtos</div><div class="pg-sub">Gerencie o catálogo — fotos e vídeos via Cloudinary</div>
+    <div class="sbar">
+      <input type="text" id="s-prod" placeholder="🔍 Buscar..." oninput="loadProdutos()">
+      <button class="btn btn-p" onclick="abrirProd()">＋ Novo produto</button>
+    </div>
+    <div class="tcard">
+      <table><thead><tr>
+        <th>ID</th><th>Produto</th><th>Modelo</th><th>Mídia</th><th>Tamanhos</th><th>Preço</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody id="tb-prods"></tbody></table>
+    </div>
+  </section>
+
+  <!-- ESTOQUE -->
+  <section id="sec-estoque" class="sec">
+    <div class="pg-title">Estoque</div><div class="pg-sub">Controle de quantidade por variante</div>
+    <div class="sbar">
+      <select id="s-est-prod" onchange="loadEstoque()"><option value="">Todos os produtos</option></select>
+      <button class="btn btn-p" onclick="abrirEstoque()">＋ Ajustar estoque</button>
+    </div>
+    <div class="tcard">
+      <table><thead><tr><th>Produto</th><th>Tamanho</th><th>Cor</th><th>Qtd</th><th>Status</th><th></th></tr></thead>
+      <tbody id="tb-est"></tbody></table>
+    </div>
+  </section>
+
+  <!-- BANNERS -->
+  <section id="sec-banners" class="sec">
+    <div class="pg-title">Banners</div><div class="pg-sub">Gerencie os banners do carrossel da loja · Tamanho ideal: 1440×520px</div>
+    <div class="sbar">
+      <button class="btn btn-p" onclick="abrirBanner()">＋ Novo banner</button>
+    </div>
+    <div id="banner-cards-wrap" class="banner-cards"></div>
+  </section>
+
+  <!-- PEDIDOS ONLINE -->
+  <section id="sec-pedidos-online" class="sec">
+    <div class="pg-title">Pedidos Online</div><div class="pg-sub">Pedidos realizados via Mercado Pago na loja</div>
+    <div class="tcard">
+      <table><thead><tr><th>ID</th><th>Cliente</th><th>Itens</th><th>Total</th><th>Status MP</th><th>Status</th><th>Data</th></tr></thead>
+      <tbody id="tb-pedidos"></tbody></table>
+    </div>
+  </section>
+
+  <!-- VENDAS -->
+  <section id="sec-vendas" class="sec">
+    <div class="pg-title">Vendas (CRM)</div><div class="pg-sub">Registre vendas via WhatsApp / presenciais</div>
+    <div class="sbar">
+      <input type="text" id="s-vend" placeholder="🔍 Buscar cliente..." oninput="loadVendas()">
+      <select id="s-vend-st" onchange="loadVendas()">
+        <option value="">Todos</option><option value="pendente">Pendente</option>
+        <option value="pago">Pago</option><option value="cancelado">Cancelado</option>
+      </select>
+      <button class="btn btn-p" onclick="abrirVenda()">＋ Registrar venda</button>
+    </div>
+    <div class="tcard">
+      <table><thead><tr>
+        <th>ID</th><th>Cliente</th><th>Produto</th><th>Tam</th><th>Cor</th><th>Total</th><th>Pgto</th><th>Status</th><th>Data</th><th></th>
+      </tr></thead>
+      <tbody id="tb-vend"></tbody></table>
+    </div>
+  </section>
+
+  <!-- ENVIOS -->
+  <section id="sec-envios" class="sec">
+    <div class="pg-title">Envios</div><div class="pg-sub">Controle de entrega por pedido</div>
+    <div class="sbar">
+      <select id="s-env-st" onchange="loadEnvios()">
+        <option value="">Todos</option><option value="aguardando">Aguardando</option>
+        <option value="preparando">Preparando</option><option value="enviado">Enviado</option>
+        <option value="entregue">Entregue</option>
+      </select>
+    </div>
+    <div class="tcard">
+      <table><thead><tr>
+        <th>Pedido</th><th>Cliente</th><th>Produto</th><th>Rastreio</th><th>Progresso</th><th></th>
+      </tr></thead>
+      <tbody id="tb-env"></tbody></table>
+    </div>
+  </section>
+
+  <!-- BACKUP -->
+  <section id="sec-backup" class="sec">
+    <div class="pg-title">Backup & Exportação</div>
+    <div class="pg-sub">Baixe o banco de dados em diferentes formatos</div>
+    <div class="bk-card">
+      <h3>📊 Exportar para Excel (.xlsx)</h3>
+      <p>Planilha com: Produtos, Estoque, Vendas, Envios, Pedidos Online e Banners.</p>
+      <div class="bk-btns"><a href="/api/backup/xlsx" class="btn btn-p">⬇️ Baixar Excel</a></div>
+    </div>
+    <div class="bk-card">
+      <h3>💾 Backup SQLite (.db)</h3>
+      <p>Arquivo binário do banco SQLite completo.</p>
+      <div class="bk-btns"><a href="/api/backup/db" class="btn btn-s">⬇️ Baixar .db</a></div>
+    </div>
+    <div class="bk-card">
+      <h3>📄 Script SQL (.sql)</h3>
+      <p>Exporta todos os dados como comandos INSERT.</p>
+      <div class="bk-btns"><a href="/api/backup/sql" class="btn btn-s">⬇️ Baixar .sql</a></div>
+    </div>
+    <div class="bk-card" style="border-color:var(--ouro)">
+      <h3>☁️ Variáveis de ambiente no Railway</h3>
+      <p>Configure no painel do Railway → Variables:</p>
+      <code style="display:block;background:var(--creme);padding:12px;border-radius:8px;font-size:12px;line-height:2">
+        CLOUDINARY_CLOUD_NAME=seu_cloud_name<br>
+        CLOUDINARY_API_KEY=sua_api_key<br>
+        CLOUDINARY_API_SECRET=seu_api_secret<br>
+        MP_ACCESS_TOKEN=seu_token_mercado_pago<br>
+        BASE_URL=https://seudominio.com.br<br>
+        ADMIN_PASS=sua_senha_segura
+      </code>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<!-- MODAL PRODUTO -->
+<div class="moverlay" id="m-prod">
+  <div class="modal">
+    <div class="m-title" id="m-prod-title">Novo Produto</div>
+    <div id="m-prod-alert"></div>
+    <input type="hidden" id="p-id">
+    <div class="fg">
+      <div class="fgrp full"><label>Nome *</label><input id="p-nome" placeholder="Ex: Tênis Chunky"></div>
+      <div class="fgrp"><label>Modelo / Código *</label><input id="p-modelo" placeholder="TEN-001"></div>
+      <div class="fgrp"><label>Preço (R$) *</label><input type="number" id="p-preco" step="0.01"></div>
+      <div class="fgrp full"><label>Descrição</label><textarea id="p-desc"></textarea></div>
+      <div class="fgrp full">
+        <label>Tamanhos</label>
+        <div class="chips" id="c-tam">
+          <span class="chip" data-v="33">33</span><span class="chip" data-v="34">34</span>
+          <span class="chip" data-v="35">35</span><span class="chip" data-v="36">36</span>
+          <span class="chip" data-v="37">37</span><span class="chip" data-v="38">38</span>
+          <span class="chip" data-v="39">39</span><span class="chip" data-v="40">40</span>
+          <span class="chip" data-v="41">41</span><span class="chip" data-v="42">42</span>
+        </div>
+        <div class="chip-add"><input type="text" id="tam-novo" placeholder="Outro"><button class="btn btn-s btn-sm" onclick="addChip('tam-novo','c-tam')">+</button></div>
+      </div>
+      <div class="fgrp full">
+        <label>Cores</label>
+        <div class="chips" id="c-cor">
+          <span class="chip" data-v="Preto">Preto</span><span class="chip" data-v="Branco">Branco</span>
+          <span class="chip" data-v="Nude">Nude</span><span class="chip" data-v="Rosa">Rosa</span>
+          <span class="chip" data-v="Vermelho">Vermelho</span><span class="chip" data-v="Azul">Azul</span>
+          <span class="chip" data-v="Caramelo">Caramelo</span><span class="chip" data-v="Prata">Prata</span>
+          <span class="chip" data-v="Dourado">Dourado</span>
+        </div>
+        <div class="chip-add"><input type="text" id="cor-nova" placeholder="Outra"><button class="btn btn-s btn-sm" onclick="addChip('cor-nova','c-cor')">+</button></div>
+      </div>
+
+      <!-- GALERIA FOTOS -->
+      <div class="fgrp full" id="fg-imgs" style="display:none">
+        <label style="margin-bottom:8px">📷 Fotos do produto (via Cloudinary)</label>
+        <div class="img-section">
+          <div class="img-section-hdr">
+            <span>Galeria</span>
+            <span id="img-count-lbl" style="font-size:11px;color:var(--texto-s)">0 foto(s)</span>
+          </div>
+          <div class="img-grid" id="img-preview"></div>
+          <div class="img-add-area" onclick="document.getElementById('img-file-input').click()">
+            <span>📷</span>
+            Clique para adicionar fotos (JPG, PNG, WEBP — máx 5MB)
+          </div>
+          <input type="file" id="img-file-input" multiple accept=".jpg,.jpeg,.png,.webp" onchange="uploadImagens()">
+        </div>
+      </div>
+
+      <!-- GALERIA VÍDEOS -->
+      <div class="fgrp full" id="fg-vids" style="display:none">
+        <label style="margin-bottom:8px">🎥 Vídeos do produto</label>
+        <div class="vid-section">
+          <div class="img-section-hdr">
+            <span>Vídeos</span>
+            <span id="vid-count-lbl" style="font-size:11px;color:var(--texto-s)">0 vídeo(s)</span>
+          </div>
+          <div class="vid-list" id="vid-list"></div>
+          <div class="vid-add-tabs">
+            <button class="vid-tab active" onclick="setVidTab('upload',this)">📤 Upload</button>
+            <button class="vid-tab" onclick="setVidTab('youtube',this)">▶ YouTube</button>
+            <button class="vid-tab" onclick="setVidTab('link',this)">🔗 Link</button>
+          </div>
+          <div class="vid-add-form" id="vid-form-upload">
+            <input type="file" id="vid-file-input" accept=".mp4,.mov,.webm" onchange="uploadVideo()">
+            <button class="btn btn-s btn-sm" onclick="document.getElementById('vid-file-input').click()">📤 Escolher vídeo</button>
+          </div>
+          <div class="vid-add-form" id="vid-form-youtube" style="display:none">
+            <input type="text" id="vid-yt-url" placeholder="https://youtube.com/watch?v=...">
+            <button class="btn btn-p btn-sm" onclick="addVideoEmbed('youtube')">Adicionar</button>
+          </div>
+          <div class="vid-add-form" id="vid-form-link" style="display:none">
+            <input type="text" id="vid-link-url" placeholder="https://...">
+            <button class="btn btn-p btn-sm" onclick="addVideoEmbed('link')">Adicionar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="fgrp"><label>Ativo na loja?</label>
+        <select id="p-ativo"><option value="1">Sim</option><option value="0">Não</option></select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+      <button class="btn btn-s" onclick="fecharModal('m-prod')">Cancelar</button>
+      <button class="btn btn-p" onclick="salvarProd()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ESTOQUE -->
+<div class="moverlay" id="m-est">
+  <div class="modal">
+    <div class="m-title">Ajustar Estoque</div>
+    <div id="m-est-alert"></div>
+    <div class="fg">
+      <div class="fgrp full"><label>Produto *</label>
+        <select id="e-prod" onchange="carregarVars('e-prod','e-tam','e-cor')"><option value="">Selecione...</option></select>
+      </div>
+      <div class="fgrp"><label>Tamanho *</label><select id="e-tam"><option value="">–</option></select></div>
+      <div class="fgrp"><label>Cor *</label><select id="e-cor"><option value="">–</option></select></div>
+      <div class="fgrp"><label>Quantidade</label><input type="number" id="e-qtd" value="0" min="0"></div>
+      <div class="fgrp"><label>Operação</label>
+        <select id="e-op"><option value="set">Definir</option><option value="add">Adicionar</option><option value="sub">Subtrair</option></select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+      <button class="btn btn-s" onclick="fecharModal('m-est')">Cancelar</button>
+      <button class="btn btn-p" onclick="salvarEst()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL BANNER -->
+<div class="moverlay" id="m-banner">
+  <div class="modal">
+    <div class="m-title" id="m-banner-title">Novo Banner</div>
+    <div id="m-banner-alert"></div>
+    <input type="hidden" id="ban-id">
+    <div class="fg">
+      <div class="fgrp full">
+        <label>Imagem do banner (1440×520px recomendado)</label>
+        <div class="banner-preview" id="ban-preview" style="display:flex;align-items:center;justify-content:center;color:var(--texto-m);font-size:13px">
+          Nenhuma imagem selecionada
+        </div>
+        <input type="file" id="ban-file" accept=".jpg,.jpeg,.png,.webp" style="display:none" onchange="previewBanner()">
+        <button class="btn btn-s btn-sm" style="margin-top:6px" onclick="document.getElementById('ban-file').click()">📷 Escolher imagem</button>
+      </div>
+      <div class="fgrp full"><label>Título</label><input id="ban-titulo" placeholder="Ex: Coleção Verão 2025"></div>
+      <div class="fgrp full"><label>Subtítulo</label><input id="ban-sub" placeholder="Ex: Desconto de até 30% em selecionados"></div>
+      <div class="fgrp"><label>Link do botão</label><input id="ban-link" placeholder="#"></div>
+      <div class="fgrp"><label>Ordem (menor = primeiro)</label><input type="number" id="ban-ordem" value="0" min="0"></div>
+      <div class="fgrp"><label>Ativo?</label>
+        <select id="ban-ativo"><option value="1">Sim</option><option value="0">Não</option></select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+      <button class="btn btn-s" onclick="fecharModal('m-banner')">Cancelar</button>
+      <button class="btn btn-p" onclick="salvarBanner()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VENDA -->
+<div class="moverlay" id="m-vend">
+  <div class="modal">
+    <div class="m-title" id="m-vend-title">Registrar Venda</div>
+    <div id="m-vend-alert"></div>
+    <input type="hidden" id="v-id">
+    <div class="fg">
+      <div class="fgrp"><label>Nome do cliente *</label><input id="v-nome"></div>
+      <div class="fgrp"><label>WhatsApp *</label><input id="v-tel" placeholder="(41) 99999-0000"></div>
+      <div class="fgrp full"><label>Endereço</label><input id="v-end"></div>
+      <div class="fgrp full"><label>Produto</label>
+        <select id="v-prod" onchange="carregarVarsVenda()"><option value="">Selecione...</option></select>
+      </div>
+      <div class="fgrp"><label>Tamanho</label><select id="v-tam"><option value="">–</option></select></div>
+      <div class="fgrp"><label>Cor</label><select id="v-cor"><option value="">–</option></select></div>
+      <div class="fgrp"><label>Quantidade</label><input type="number" id="v-qtd" value="1" min="1" oninput="calcTot()"></div>
+      <div class="fgrp"><label>Preço unit. (R$)</label><input type="number" id="v-preco" step="0.01" oninput="calcTot()"></div>
+      <div class="fgrp"><label>Total</label><input id="v-total" readonly style="background:var(--creme);font-weight:700"></div>
+      <div class="fgrp"><label>Pagamento</label>
+        <select id="v-pag"><option>PIX</option><option>Cartão crédito</option><option>Cartão débito</option><option>Dinheiro</option><option>Boleto</option><option>Mercado Pago</option></select>
+      </div>
+      <div class="fgrp"><label>Status</label>
+        <select id="v-status"><option value="pendente">Pendente</option><option value="pago">Pago</option><option value="cancelado">Cancelado</option></select>
+      </div>
+      <div class="fgrp full"><label>Observações</label><textarea id="v-obs"></textarea></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+      <button class="btn btn-s" onclick="fecharModal('m-vend')">Cancelar</button>
+      <button class="btn btn-p" onclick="salvarVenda()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ENVIO -->
+<div class="moverlay" id="m-env">
+  <div class="modal">
+    <div class="m-title">Atualizar Envio</div>
+    <input type="hidden" id="env-vid">
+    <div class="fg">
+      <div class="fgrp full"><label>Status *</label>
+        <select id="env-st">
+          <option value="aguardando">Aguardando pagamento</option>
+          <option value="preparando">Preparando pedido</option>
+          <option value="enviado">Enviado</option>
+          <option value="entregue">Entregue</option>
+        </select>
+      </div>
+      <div class="fgrp full"><label>Código de rastreio</label><input id="env-rastreio"></div>
+      <div class="fgrp full"><label>Transportadora</label><input id="env-transp" placeholder="Correios, Jadlog..."></div>
+      <div class="fgrp full"><label>Observação</label><textarea id="env-obs"></textarea></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+      <button class="btn btn-s" onclick="fecharModal('m-env')">Cancelar</button>
+      <button class="btn btn-p" onclick="salvarEnv()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = window.location.origin;
+
+async function api(path, opts={}) {
+  const r = await fetch(API + path, {
+    headers: {'Content-Type':'application/json'},
+    ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+function setStatus(ok, txt) {
+  document.getElementById('dot').className = 'dot ' + (ok ? 'ok' : 'err');
+  document.getElementById('db-txt').textContent = txt;
+}
+
+const loaders = { dashboard:loadDash, produtos:loadProdutos, estoque:loadEstoque, vendas:loadVendas, envios:loadEnvios, banners:loadBanners, 'pedidos-online':loadPedidosOnline };
+function navTo(el) {
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
+  el.classList.add('active');
+  const sec = el.dataset.sec;
+  document.getElementById('sec-'+sec).classList.add('active');
+  if (loaders[sec]) loaders[sec]();
+}
+
+function abrirModal(id) { document.getElementById(id).classList.add('open'); }
+function fecharModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.chip').forEach(c => c.onclick = () => c.classList.toggle('sel'));
+function addChip(inputId, containerId) {
+  const v = document.getElementById(inputId).value.trim(); if (!v) return;
+  const exist = [...document.querySelectorAll(`#${containerId} .chip`)].find(c=>c.dataset.v===v);
+  if (exist) { exist.classList.add('sel'); }
+  else {
+    const ch = document.createElement('span'); ch.className='chip sel'; ch.dataset.v=v; ch.textContent=v;
+    ch.onclick = () => ch.classList.toggle('sel');
+    document.getElementById(containerId).appendChild(ch);
+  }
+  document.getElementById(inputId).value='';
+}
+function getChips(id) { return [...document.querySelectorAll(`#${id} .chip.sel`)].map(c=>c.dataset.v); }
+function setChips(id, vals) {
+  document.querySelectorAll(`#${id} .chip`).forEach(c => c.classList.toggle('sel', (vals||[]).includes(c.dataset.v)));
+}
+
+let todosProds = [];
+function preencherSelects() {
+  const opts = '<option value="">Selecione...</option>' + todosProds.map(p=>`<option value="${p.id}">${p.nome} (${p.modelo})</option>`).join('');
+  ['e-prod','v-prod'].forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=opts; });
+  document.getElementById('s-est-prod').innerHTML = '<option value="">Todos os produtos</option>' + todosProds.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+}
+
+function carregarVars(selId, tamId, corId, selTam='', selCor='') {
+  const prodId = document.getElementById(selId).value;
+  document.getElementById(tamId).innerHTML = '<option value="">–</option>';
+  document.getElementById(corId).innerHTML = '<option value="">–</option>';
+  if (!prodId) return;
+  const p = todosProds.find(x=>x.id==prodId); if (!p) return;
+  JSON.parse(p.tamanhos||'[]').forEach(t => {
+    document.getElementById(tamId).innerHTML += `<option value="${t}" ${t===selTam?'selected':''}>${t}</option>`;
+  });
+  JSON.parse(p.cores||'[]').forEach(c => {
+    document.getElementById(corId).innerHTML += `<option value="${c}" ${c===selCor?'selected':''}>${c}</option>`;
+  });
+}
+function carregarVarsVenda() {
+  carregarVars('v-prod','v-tam','v-cor');
+  const p = todosProds.find(x=>x.id==document.getElementById('v-prod').value);
+  if (p) { document.getElementById('v-preco').value=p.preco; calcTot(); }
+}
+function calcTot() {
+  const q=parseFloat(document.getElementById('v-qtd').value)||0;
+  const p=parseFloat(document.getElementById('v-preco').value)||0;
+  document.getElementById('v-total').value='R$ '+(q*p).toFixed(2);
+}
+
+// ─── DASHBOARD ────────────────────────────────────────────────────────────────
+async function loadDash() {
+  try {
+    const d = await api('/api/dashboard');
+    document.getElementById('st-prod').textContent = d.total_produtos;
+    document.getElementById('st-vend').textContent = d.total_vendas;
+    document.getElementById('st-ped').textContent = d.pedidos_online;
+    document.getElementById('st-fat').textContent = 'R$ '+Number(d.faturamento).toFixed(2);
+    document.getElementById('st-env').textContent = d.envios_pendentes;
+    const eMap = {aguardando:'bc',preparando:'ba',enviado:'baz',entregue:'bv'};
+    document.getElementById('tb-recentes').innerHTML = d.vendas_recentes.length
+      ? d.vendas_recentes.map(v=>`<tr>
+          <td><strong>${v.cliente_nome}</strong></td>
+          <td>${v.produto_nome||'–'}</td>
+          <td><strong>R$ ${Number(v.total||0).toFixed(2)}</strong></td>
+          <td><span class="badge ${eMap[v.env_status]||'bc'}">${v.env_status||'–'}</span></td>
+          <td style="font-size:11px;color:var(--texto-m)">${(v.criado_em||'').substring(0,10)}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--texto-m)">Sem vendas ainda</td></tr>';
+  } catch(e) { setStatus(false,'Erro API'); }
+}
+
+// ─── PRODUTOS ─────────────────────────────────────────────────────────────────
+async function loadProdutos() {
+  const q = document.getElementById('s-prod').value;
+  todosProds = await api('/api/produtos');
+  const prods = q ? await api('/api/produtos?q='+encodeURIComponent(q)) : todosProds;
+  preencherSelects();
+  document.getElementById('tb-prods').innerHTML = prods.map(p => {
+    const imgs = JSON.parse(p.imagens||'[]');
+    const vids = JSON.parse(p.videos||'[]');
+    const tams = JSON.parse(p.tamanhos||'[]');
+    const thumb = imgs[0] ? `<img class="td-thumb" src="${imgs[0]}" alt="">` : `<span class="td-thumb-placeholder">👟</span>`;
+    return `<tr>
+      <td><code style="font-size:11px;background:var(--creme-m);padding:2px 6px;border-radius:4px">#${p.id}</code></td>
+      <td class="td-prod"><div class="td-prod-inner">${thumb}<strong>${p.nome}</strong></div></td>
+      <td style="font-family:monospace;font-size:12px">${p.modelo}</td>
+      <td><span class="badge bc">${imgs.length} foto(s)</span> ${vids.length?`<span class="badge baz">${vids.length} vídeo(s)</span>`:''}</td>
+      <td style="font-size:12px">${tams.slice(0,4).join(', ')}${tams.length>4?'…':''}</td>
+      <td><strong>R$ ${Number(p.preco).toFixed(2)}</strong></td>
+      <td>${p.ativo ? '<span class="badge bv">Ativo</span>' : '<span class="badge bc">Inativo</span>'}</td>
+      <td><div style="display:flex;gap:4px">
+        <button class="btn btn-s btn-sm" onclick="editProd(${p.id})">✏️</button>
+        <button class="btn btn-d btn-sm" onclick="delProd(${p.id})">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--texto-m)">Nenhum produto</td></tr>';
+}
+
+let editingProdId = null;
+function abrirProd() {
+  editingProdId = null;
+  document.getElementById('p-id').value='';
+  document.getElementById('m-prod-title').textContent='Novo Produto';
+  ['p-nome','p-modelo','p-desc','p-preco'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('p-ativo').value='1';
+  document.querySelectorAll('#c-tam .chip, #c-cor .chip').forEach(c=>c.classList.remove('sel'));
+  document.getElementById('fg-imgs').style.display='none';
+  document.getElementById('fg-vids').style.display='none';
+  document.getElementById('img-preview').innerHTML='';
+  document.getElementById('vid-list').innerHTML='';
+  document.getElementById('m-prod-alert').innerHTML='';
+  abrirModal('m-prod');
+}
+
+async function editProd(id) {
+  const p = await api(`/api/produtos/${id}`);
+  editingProdId = id;
+  document.getElementById('p-id').value=p.id;
+  document.getElementById('m-prod-title').textContent='Editar Produto';
+  document.getElementById('p-nome').value=p.nome;
+  document.getElementById('p-modelo').value=p.modelo;
+  document.getElementById('p-desc').value=p.descricao||'';
+  document.getElementById('p-preco').value=p.preco;
+  document.getElementById('p-ativo').value=p.ativo;
+  setChips('c-tam', JSON.parse(p.tamanhos||'[]'));
+  setChips('c-cor', JSON.parse(p.cores||'[]'));
+  document.getElementById('fg-imgs').style.display='block';
+  document.getElementById('fg-vids').style.display='block';
+  renderImgPreview(JSON.parse(p.imagens||'[]'), id);
+  renderVidList(JSON.parse(p.videos||'[]'), id);
+  document.getElementById('m-prod-alert').innerHTML='';
+  abrirModal('m-prod');
+}
+
+function renderImgPreview(imgs, prodId) {
+  const grid = document.getElementById('img-preview');
+  document.getElementById('img-count-lbl').textContent = `${imgs.length} foto(s)`;
+  if (!imgs.length) { grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:16px;color:var(--texto-m);font-size:12px">Nenhuma foto</div>'; return; }
+  grid.innerHTML = imgs.map((url, i) => `
+    <div class="img-item">
+      <img src="${url}" alt="" onerror="this.parentElement.style.background='var(--creme-m)'">
+      <div class="img-order">${i === 0 ? '✩ Capa' : '#'+(i+1)}</div>
+      <button class="img-del" onclick="delImg('${url}',${prodId})">×</button>
+    </div>`).join('');
+}
+
+function renderVidList(videos, prodId) {
+  const list = document.getElementById('vid-list');
+  document.getElementById('vid-count-lbl').textContent = `${videos.length} vídeo(s)`;
+  if (!videos.length) { list.innerHTML='<div style="text-align:center;padding:12px;color:var(--texto-m);font-size:12px">Nenhum vídeo</div>'; return; }
+  list.innerHTML = videos.map(v => `
+    <div class="vid-item">
+      <span class="vid-type">${v.tipo==='upload'?'🎬':v.tipo==='youtube'?'▶':'🔗'}</span>
+      <span class="vid-url" title="${v.url}">${v.url}</span>
+      <button class="vid-del" onclick="delVid('${v.url}',${prodId})">🗑</button>
+    </div>`).join('');
+}
+
+async function salvarProd() {
+  const id = document.getElementById('p-id').value;
+  const body = {
+    nome: document.getElementById('p-nome').value.trim(),
+    modelo: document.getElementById('p-modelo').value.trim(),
+    descricao: document.getElementById('p-desc').value,
+    preco: parseFloat(document.getElementById('p-preco').value),
+    tamanhos: getChips('c-tam'), cores: getChips('c-cor'),
+    ativo: parseInt(document.getElementById('p-ativo').value)
+  };
+  const alertEl = document.getElementById('m-prod-alert');
+  if (!body.nome||!body.modelo||isNaN(body.preco)) { alertEl.innerHTML='<div class="alert a-err">Preencha nome, modelo e preço.</div>'; return; }
+  try {
+    let saved;
+    if (id) { saved = await api(`/api/produtos/${id}`, {method:'PUT', body}); }
+    else { saved = await api('/api/produtos', {method:'POST', body}); editingProdId = saved.id; }
+    document.getElementById('p-id').value = saved.id;
+    document.getElementById('fg-imgs').style.display='block';
+    document.getElementById('fg-vids').style.display='block';
+    renderImgPreview(JSON.parse(saved.imagens||'[]'), saved.id);
+    renderVidList(JSON.parse(saved.videos||'[]'), saved.id);
+    fecharModal('m-prod'); loadProdutos();
+  } catch(e) { alertEl.innerHTML=`<div class="alert a-err">Erro: ${e.message}</div>`; }
+}
+
+async function delProd(id) {
+  if (!confirm('Deletar este produto e todas as mídias do Cloudinary?')) return;
+  await api(`/api/produtos/${id}`, {method:'DELETE'}); loadProdutos();
+}
+
+async function uploadImagens() {
+  const id = document.getElementById('p-id').value || editingProdId;
+  if (!id) { alert('Salve o produto primeiro.'); return; }
+  const files = document.getElementById('img-file-input').files;
+  if (!files.length) return;
+  const addArea = document.querySelector('.img-add-area');
+  const orig = addArea.innerHTML;
+  addArea.innerHTML = '<span>⏳</span> Enviando para Cloudinary...';
+  addArea.style.pointerEvents = 'none';
+  const fd = new FormData();
+  [...files].forEach(f => fd.append('imagens', f));
+  const r = await fetch(`${API}/api/produtos/${id}/imagens`, {method:'POST', body:fd});
+  const data = await r.json();
+  renderImgPreview(data.imagens, id);
+  addArea.innerHTML = orig; addArea.style.pointerEvents = '';
+  document.getElementById('img-file-input').value='';
+}
+
+async function delImg(url, prodId) {
+  if (!confirm('Remover foto do Cloudinary?')) return;
+  await api(`/api/produtos/${prodId}/imagens`, {method:'DELETE', body:{url}});
+  const p = await api(`/api/produtos/${prodId}`);
+  renderImgPreview(JSON.parse(p.imagens||'[]'), prodId);
+}
+
+// ── Vídeos ──
+let vidTabAtual = 'upload';
+function setVidTab(tab, btn) {
+  vidTabAtual = tab;
+  document.querySelectorAll('.vid-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  ['upload','youtube','link'].forEach(t => {
+    document.getElementById('vid-form-'+t).style.display = t===tab ? 'flex' : 'none';
+  });
+}
+
+async function uploadVideo() {
+  const id = document.getElementById('p-id').value || editingProdId;
+  if (!id) { alert('Salve o produto primeiro.'); return; }
+  const file = document.getElementById('vid-file-input').files[0];
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('video', file);
+  const btn = document.querySelector('#vid-form-upload button');
+  btn.textContent = '⏳ Enviando...'; btn.disabled = true;
+  const r = await fetch(`${API}/api/produtos/${id}/videos`, {method:'POST', body:fd});
+  const data = await r.json();
+  renderVidList(data.videos, id);
+  btn.textContent = '📤 Escolher vídeo'; btn.disabled = false;
+  document.getElementById('vid-file-input').value='';
+}
+
+async function addVideoEmbed(tipo) {
+  const id = document.getElementById('p-id').value || editingProdId;
+  if (!id) { alert('Salve o produto primeiro.'); return; }
+  const url = document.getElementById(tipo === 'youtube' ? 'vid-yt-url' : 'vid-link-url').value.trim();
+  if (!url) return;
+  const r = await api(`/api/produtos/${id}/videos/embed`, {method:'POST', body:{url, tipo}});
+  renderVidList(r.videos, id);
+  document.getElementById(tipo === 'youtube' ? 'vid-yt-url' : 'vid-link-url').value='';
+}
+
+async function delVid(url, prodId) {
+  if (!confirm('Remover vídeo?')) return;
+  const r = await api(`/api/produtos/${prodId}/videos`, {method:'DELETE', body:{url}});
+  renderVidList(r.videos, prodId);
+}
+
+// ─── ESTOQUE ──────────────────────────────────────────────────────────────────
+async function loadEstoque() {
+  const pid = document.getElementById('s-est-prod').value;
+  const rows = await api('/api/estoque'+(pid?`?produto_id=${pid}`:''));
+  document.getElementById('tb-est').innerHTML = rows.map(r => {
+    const cls = r.quantidade<=0 ? 'br' : r.quantidade<=3 ? 'ba' : 'bv';
+    const lbl = r.quantidade<=0 ? 'Sem estoque' : r.quantidade<=3 ? 'Baixo' : 'OK';
+    return `<tr>
+      <td><strong>${r.produto_nome}</strong></td>
+      <td>${r.tamanho}</td><td>${r.cor}</td>
+      <td><strong style="font-size:16px">${r.quantidade}</strong></td>
+      <td><span class="badge ${cls}">${lbl}</span></td>
+      <td><button class="btn btn-s btn-sm" onclick="editEst(${r.produto_id},'${r.tamanho}','${r.cor}',${r.quantidade})">✏️</button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--texto-m)">Nenhum registro</td></tr>';
+}
+function abrirEstoque() { document.getElementById('m-est-alert').innerHTML=''; abrirModal('m-est'); }
+function editEst(pid, tam, cor, qtd) {
+  document.getElementById('e-prod').value=pid; carregarVars('e-prod','e-tam','e-cor',tam,cor);
+  document.getElementById('e-qtd').value=qtd; document.getElementById('e-op').value='set';
+  abrirModal('m-est');
+}
+async function salvarEst() {
+  const body = {
+    produto_id: document.getElementById('e-prod').value,
+    tamanho: document.getElementById('e-tam').value,
+    cor: document.getElementById('e-cor').value,
+    quantidade: parseInt(document.getElementById('e-qtd').value)||0,
+    operacao: document.getElementById('e-op').value
+  };
+  if (!body.produto_id||!body.tamanho||!body.cor) { document.getElementById('m-est-alert').innerHTML='<div class="alert a-err">Preencha todos os campos.</div>'; return; }
+  await api('/api/estoque', {method:'POST', body});
+  fecharModal('m-est'); loadEstoque();
+}
+
+// ─── BANNERS ──────────────────────────────────────────────────────────────────
+async function loadBanners() {
+  const banners = await api('/api/banners');
+  const wrap = document.getElementById('banner-cards-wrap');
+  if (!banners.length) { wrap.innerHTML='<p style="color:var(--texto-m);font-size:13px">Nenhum banner cadastrado ainda.</p>'; return; }
+  wrap.innerHTML = banners.map(b => `
+    <div class="banner-card">
+      <div class="banner-card-img" style="${b.url_imagem?`background-image:url(${b.url_imagem})`:'background:var(--creme-m)'}"></div>
+      <div class="banner-card-body">
+        <div class="banner-card-title">${b.titulo||'(sem título)'}</div>
+        <div class="banner-card-sub">${b.subtitulo||''} ${b.ativo?'<span class="badge bv">Ativo</span>':'<span class="badge bc">Inativo</span>'}</div>
+        <div class="banner-card-actions">
+          <button class="btn btn-s btn-sm" onclick="editBanner(${b.id})">✏️ Editar</button>
+          <button class="btn btn-d btn-sm" onclick="delBanner(${b.id})">🗑️</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function abrirBanner() {
+  document.getElementById('ban-id').value='';
+  document.getElementById('m-banner-title').textContent='Novo Banner';
+  ['ban-titulo','ban-sub','ban-link'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('ban-ordem').value='0';
+  document.getElementById('ban-ativo').value='1';
+  document.getElementById('ban-preview').innerHTML='Nenhuma imagem selecionada';
+  document.getElementById('ban-preview').style.backgroundImage='';
+  document.getElementById('ban-file').value='';
+  document.getElementById('m-banner-alert').innerHTML='';
+  abrirModal('m-banner');
+}
+
+async function editBanner(id) {
+  const banners = await api('/api/banners');
+  const b = banners.find(x=>x.id===id);
+  if (!b) return;
+  document.getElementById('ban-id').value=b.id;
+  document.getElementById('m-banner-title').textContent='Editar Banner';
+  document.getElementById('ban-titulo').value=b.titulo||'';
+  document.getElementById('ban-sub').value=b.subtitulo||'';
+  document.getElementById('ban-link').value=b.url_link||'#';
+  document.getElementById('ban-ordem').value=b.ordem||0;
+  document.getElementById('ban-ativo').value=b.ativo;
+  const prev = document.getElementById('ban-preview');
+  if (b.url_imagem) { prev.innerHTML=`<img src="${b.url_imagem}" style="width:100%;height:100%;object-fit:cover">`; }
+  abrirModal('m-banner');
+}
+
+function previewBanner() {
+  const file = document.getElementById('ban-file').files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('ban-preview').innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function salvarBanner() {
+  const id = document.getElementById('ban-id').value;
+  const file = document.getElementById('ban-file').files[0];
+  const fd = new FormData();
+  if (file) fd.append('imagem', file);
+  fd.append('titulo', document.getElementById('ban-titulo').value);
+  fd.append('subtitulo', document.getElementById('ban-sub').value);
+  fd.append('url_link', document.getElementById('ban-link').value || '#');
+  fd.append('ativo', document.getElementById('ban-ativo').value);
+  fd.append('ordem', document.getElementById('ban-ordem').value || '0');
+
+  const url = id ? `/api/banners/${id}` : '/api/banners';
+  const r = await fetch(API + url, { method: id ? 'PUT' : 'POST', body: fd });
+  if (!r.ok) { document.getElementById('m-banner-alert').innerHTML='<div class="alert a-err">Erro ao salvar.</div>'; return; }
+  fecharModal('m-banner'); loadBanners();
+}
+
+async function delBanner(id) {
+  if (!confirm('Deletar este banner?')) return;
+  await api(`/api/banners/${id}`, {method:'DELETE'}); loadBanners();
+}
+
+// ─── PEDIDOS ONLINE ───────────────────────────────────────────────────────────
+async function loadPedidosOnline() {
+  const pedidos = await api('/api/pedidos-online');
+  const stMap = {pendente:'ba',pago:'bv',cancelado:'br'};
+  document.getElementById('tb-pedidos').innerHTML = pedidos.map(p => {
+    const itens = JSON.parse(p.itens||'[]');
+    return `<tr>
+      <td><code style="font-size:11px;background:var(--creme-m);padding:2px 5px;border-radius:4px">#${p.id}</code></td>
+      <td><strong>${p.cliente_nome||'–'}</strong><br><span style="font-size:11px;color:var(--texto-m)">${p.cliente_email||''}</span></td>
+      <td style="font-size:12px">${itens.map(i=>`${i.nome} ×${i.quantidade}`).join('<br>')}</td>
+      <td><strong>R$ ${Number(p.total||0).toFixed(2)}</strong></td>
+      <td><span class="badge bc">${p.mp_status||'–'}</span></td>
+      <td><span class="badge ${stMap[p.status]||'bc'}">${p.status}</span></td>
+      <td style="font-size:11px;color:var(--texto-m)">${(p.criado_em||'').substring(0,16)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--texto-m)">Nenhum pedido online ainda</td></tr>';
+}
+
+// ─── VENDAS ───────────────────────────────────────────────────────────────────
+async function loadVendas() {
+  const q = document.getElementById('s-vend').value;
+  const st = document.getElementById('s-vend-st').value;
+  let qs = new URLSearchParams();
+  if (q) qs.set('q',q); if (st) qs.set('status',st);
+  const rows = await api('/api/vendas'+(qs.toString()?'?'+qs:''));
+  const stMap = {pendente:'ba',pago:'bv',cancelado:'br'};
+  document.getElementById('tb-vend').innerHTML = rows.map(v=>`<tr>
+    <td><code style="font-size:11px;background:var(--creme-m);padding:2px 5px;border-radius:4px">#${v.id}</code></td>
+    <td><strong>${v.cliente_nome}</strong><br><span style="font-size:11px;color:var(--texto-m)">${v.cliente_tel}</span></td>
+    <td>${v.produto_nome||'–'}</td><td>${v.tamanho||'–'}</td><td>${v.cor||'–'}</td>
+    <td><strong>R$ ${Number(v.total||0).toFixed(2)}</strong></td>
+    <td style="font-size:12px">${v.pagamento||'–'}</td>
+    <td><span class="badge ${stMap[v.status]||'bc'}">${v.status}</span></td>
+    <td style="font-size:11px;color:var(--texto-m)">${(v.criado_em||'').substring(0,10)}</td>
+    <td style="display:flex;gap:4px">
+      <button class="btn btn-s btn-sm" onclick="editVenda(${v.id})">✏️</button>
+      <button class="btn btn-d btn-sm" onclick="delVenda(${v.id})">🗑️</button>
+      <button class="btn btn-s btn-sm" onclick="abrirEnv(${v.id})" title="Envio">📦</button>
+    </td>
+  </tr>`).join('') || '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--texto-m)">Nenhuma venda</td></tr>';
+}
+
+function abrirVenda() {
+  document.getElementById('v-id').value=''; document.getElementById('m-vend-title').textContent='Registrar Venda';
+  ['v-nome','v-tel','v-end','v-obs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('v-qtd').value='1'; document.getElementById('v-preco').value='';
+  document.getElementById('v-total').value=''; document.getElementById('v-status').value='pendente';
+  document.getElementById('m-vend-alert').innerHTML=''; abrirModal('m-vend');
+}
+async function editVenda(id) {
+  const vendas = await api('/api/vendas');
+  const venda = vendas.find(x=>x.id===id); if (!venda) return;
+  document.getElementById('v-id').value=venda.id;
+  document.getElementById('m-vend-title').textContent='Editar Venda';
+  document.getElementById('v-nome').value=venda.cliente_nome;
+  document.getElementById('v-tel').value=venda.cliente_tel;
+  document.getElementById('v-end').value=venda.cliente_end||'';
+  document.getElementById('v-prod').value=venda.produto_id||'';
+  carregarVars('v-prod','v-tam','v-cor',venda.tamanho,venda.cor);
+  document.getElementById('v-qtd').value=venda.quantidade;
+  document.getElementById('v-preco').value=venda.preco_unit;
+  document.getElementById('v-total').value='R$ '+Number(venda.total).toFixed(2);
+  document.getElementById('v-pag').value=venda.pagamento||'PIX';
+  document.getElementById('v-status').value=venda.status;
+  document.getElementById('v-obs').value=venda.observacoes||'';
+  document.getElementById('m-vend-alert').innerHTML=''; abrirModal('m-vend');
+}
+async function salvarVenda() {
+  const id = document.getElementById('v-id').value;
+  const prodId = document.getElementById('v-prod').value;
+  const prodNome = prodId ? (todosProds.find(p=>p.id==prodId)||{}).nome||'' : '';
+  const qtd = parseInt(document.getElementById('v-qtd').value)||1;
+  const preco = parseFloat(document.getElementById('v-preco').value)||0;
+  const body = {
+    cliente_nome: document.getElementById('v-nome').value.trim(),
+    cliente_tel:  document.getElementById('v-tel').value.trim(),
+    cliente_end:  document.getElementById('v-end').value,
+    produto_id: prodId||null, produto_nome: prodNome,
+    tamanho: document.getElementById('v-tam').value,
+    cor:     document.getElementById('v-cor').value,
+    quantidade: qtd, preco_unit: preco, total: qtd*preco,
+    pagamento: document.getElementById('v-pag').value,
+    status:    document.getElementById('v-status').value,
+    observacoes: document.getElementById('v-obs').value
+  };
+  if (!body.cliente_nome||!body.cliente_tel) { document.getElementById('m-vend-alert').innerHTML='<div class="alert a-err">Nome e telefone obrigatórios.</div>'; return; }
+  try {
+    if (id) await api(`/api/vendas/${id}`, {method:'PUT', body});
+    else await api('/api/vendas', {method:'POST', body});
+    fecharModal('m-vend'); loadVendas(); loadDash();
+  } catch(e) { document.getElementById('m-vend-alert').innerHTML=`<div class="alert a-err">${e.message}</div>`; }
+}
+async function delVenda(id) {
+  if (!confirm('Deletar esta venda?')) return;
+  await api(`/api/vendas/${id}`, {method:'DELETE'}); loadVendas(); loadDash();
+}
+
+// ─── ENVIOS ───────────────────────────────────────────────────────────────────
+const ENV_STEPS = ['aguardando','preparando','enviado','entregue'];
+const ENV_LBL = {aguardando:'Aguardando',preparando:'Preparando',enviado:'Enviado',entregue:'Entregue'};
+async function loadEnvios() {
+  const st = document.getElementById('s-env-st').value;
+  const rows = await api('/api/envios'+(st?`?status=${st}`:''));
+  document.getElementById('tb-env').innerHTML = rows.map(e=>{
+    const ci = ENV_STEPS.indexOf(e.status);
+    const steps = ENV_STEPS.map((s,i)=>`<div class="env-step ${i<ci?'done':i===ci?'cur':''}">${ENV_LBL[s]}</div>`).join('');
+    return `<tr>
+      <td><code style="font-size:11px;background:var(--creme-m);padding:2px 5px;border-radius:4px">#${e.venda_id}</code></td>
+      <td><strong>${e.cliente_nome||'–'}</strong></td>
+      <td>${e.produto_nome||'–'}${e.tamanho?` <span class="badge bc">${e.tamanho}</span>`:''}</td>
+      <td style="font-size:12px">${e.rastreio||'–'}<br><span style="font-size:11px;color:var(--texto-m)">${e.transportadora||''}</span></td>
+      <td><div class="env-steps">${steps}</div></td>
+      <td><button class="btn btn-s btn-sm" onclick="abrirEnv(${e.venda_id})">✏️</button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--texto-m)">Nenhum envio</td></tr>';
+}
+async function abrirEnv(vid) {
+  document.getElementById('env-vid').value=vid;
+  const envios = await api('/api/envios');
+  const env = envios.find(e=>e.venda_id===vid)||{};
+  document.getElementById('env-st').value=env.status||'aguardando';
+  document.getElementById('env-rastreio').value=env.rastreio||'';
+  document.getElementById('env-transp').value=env.transportadora||'';
+  document.getElementById('env-obs').value=env.observacao||'';
+  abrirModal('m-env');
+}
+async function salvarEnv() {
+  const vid = document.getElementById('env-vid').value;
+  await api(`/api/envios/${vid}`, {method:'PUT', body:{
+    status: document.getElementById('env-st').value,
+    rastreio: document.getElementById('env-rastreio').value,
+    transportadora: document.getElementById('env-transp').value,
+    observacao: document.getElementById('env-obs').value
+  }});
+  fecharModal('m-env'); loadEnvios();
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+(async () => {
+  try {
+    await api('/api/dashboard');
+    setStatus(true, 'Banco conectado');
+    todosProds = await api('/api/produtos');
+    preencherSelects();
+    loadDash();
+  } catch(e) { setStatus(false, 'Servidor offline'); }
+})();
+</script>
+</body>
+</html>
