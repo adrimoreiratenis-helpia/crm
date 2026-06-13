@@ -1,6 +1,6 @@
 const express = require('express');
 const Database = require('better-sqlite3');
-const { setupNuvemshop } = require('./nuvemshop');
+const { setupNuvemshop, syncProdutoParaNuvemshop, importarProdutosDaNuvemshop, parseJsonArray } = require('./nuvemshop');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -27,7 +27,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
-// ─── PASTAS LOCAIS (apenas backup/db, sem uploads locais) ─────────────────────
+// ─── PASTAS LOCAIS ─────────────────────────────────────────────────────────────
 const DATA_DIR   = path.join(__dirname, 'data');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 [DATA_DIR, BACKUP_DIR].forEach(d => !fs.existsSync(d) && fs.mkdirSync(d, { recursive: true }));
@@ -49,6 +49,7 @@ db.exec(`
     imagens     TEXT    NOT NULL DEFAULT '[]',
     videos      TEXT    NOT NULL DEFAULT '[]',
     ativo       INTEGER NOT NULL DEFAULT 1,
+    ns_id       TEXT,
     criado_em   TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
   );
   CREATE TABLE IF NOT EXISTS estoque (
@@ -111,8 +112,12 @@ db.exec(`
   );
 `);
 
-// Migração: adiciona colunas videos/banners se não existirem (Railway já em produção)
-try { db.exec(`ALTER TABLE produtos ADD COLUMN videos TEXT NOT NULL DEFAULT '[]'`); } catch(_) {}
+// ─── MIGRAÇÕES SEGURAS ────────────────────────────────────────────────────────
+// Adiciona colunas novas sem quebrar instâncias já em produção
+[
+  `ALTER TABLE produtos ADD COLUMN videos TEXT NOT NULL DEFAULT '[]'`,
+  `ALTER TABLE produtos ADD COLUMN ns_id TEXT`,
+].forEach(sql => { try { db.exec(sql); } catch (_) {} });
 
 // ─── PROTEÇÃO DO ADMIN ────────────────────────────────────────────────────────
 const ADMIN_PASS = process.env.ADMIN_PASS || 'admin123';
@@ -157,8 +162,8 @@ const uploadVideo  = multer({ storage: videoStorage,  limits: { fileSize: 80 * 1
 const uploadBanner = multer({ storage: bannerStorage, limits: { fileSize: 8 * 1024 * 1024 } });
 
 // ─── Helper: sanitiza listas de tamanhos/cores ────────────────────────────────
-// Remove valores vazios, espaços extras e duplicados. Isso evita o erro
-// "Variant values should not be repeated" ao sincronizar com a Nuvemshop.
+// Remove valores vazios, espaços extras e duplicados. Evita o erro
+// "Variant values should not be repeated" da Nuvemshop.
 function sanitizarLista(lista) {
   return [...new Set(
     (lista || []).map(v => String(v).trim()).filter(Boolean)
@@ -189,7 +194,10 @@ app.post('/api/produtos', (req, res) => {
   try {
     const r = db.prepare(
       'INSERT INTO produtos (nome,modelo,descricao,preco,tamanhos,cores,ativo) VALUES (?,?,?,?,?,?,?)'
-    ).run(nome, modelo, descricao || null, preco, JSON.stringify(sanitizarLista(tamanhos)), JSON.stringify(sanitizarLista(cores)), ativo ?? 1);
+    ).run(nome, modelo, descricao || null, preco,
+      JSON.stringify(sanitizarLista(tamanhos)),
+      JSON.stringify(sanitizarLista(cores)),
+      ativo ?? 1);
     res.status(201).json(db.prepare('SELECT * FROM produtos WHERE id=?').get(r.lastInsertRowid));
   } catch (e) { res.status(409).json({ error: e.message }); }
 });
@@ -198,15 +206,17 @@ app.put('/api/produtos/:id', (req, res) => {
   const { nome, modelo, descricao, preco, tamanhos, cores, ativo } = req.body;
   db.prepare(
     'UPDATE produtos SET nome=?,modelo=?,descricao=?,preco=?,tamanhos=?,cores=?,ativo=? WHERE id=?'
-  ).run(nome, modelo, descricao || null, preco, JSON.stringify(sanitizarLista(tamanhos)), JSON.stringify(sanitizarLista(cores)), ativo ?? 1, req.params.id);
+  ).run(nome, modelo, descricao || null, preco,
+    JSON.stringify(sanitizarLista(tamanhos)),
+    JSON.stringify(sanitizarLista(cores)),
+    ativo ?? 1, req.params.id);
   res.json(db.prepare('SELECT * FROM produtos WHERE id=?').get(req.params.id));
 });
 
 app.delete('/api/produtos/:id', async (req, res) => {
   const p = db.prepare('SELECT imagens, videos FROM produtos WHERE id=?').get(req.params.id);
   if (p) {
-    // Remove do Cloudinary
-    const allMedia = [...JSON.parse(p.imagens || '[]'), ...JSON.parse(p.videos || '[]')];
+    const allMedia = [...parseJsonArray(p.imagens), ...parseJsonArray(p.videos).map(v => v.url || v).filter(Boolean)];
     for (const url of allMedia) {
       try {
         const publicId = url.split('/').slice(-2).join('/').replace(/\.[^.]+$/, '');
@@ -222,8 +232,8 @@ app.delete('/api/produtos/:id', async (req, res) => {
 app.post('/api/produtos/:id/imagens', uploadImg.array('imagens', 8), (req, res) => {
   const p = db.prepare('SELECT imagens FROM produtos WHERE id=?').get(req.params.id);
   if (!p) return res.status(404).json({ error: 'Produto não encontrado' });
-  const existentes = JSON.parse(p.imagens || '[]');
-  const novas = req.files.map(f => f.path); // Cloudinary devolve URL em f.path
+  const existentes = parseJsonArray(p.imagens);
+  const novas = req.files.map(f => f.path);
   const todas = [...existentes, ...novas];
   db.prepare('UPDATE produtos SET imagens=? WHERE id=?').run(JSON.stringify(todas), req.params.id);
   res.json({ imagens: todas });
@@ -237,28 +247,28 @@ app.delete('/api/produtos/:id/imagens', async (req, res) => {
     const publicId = url.split('/').slice(-2).join('/').replace(/\.[^.]+$/, '');
     await cloudinary.uploader.destroy(publicId);
   } catch (_) {}
-  const novas = JSON.parse(p.imagens || '[]').filter(i => i !== url);
+  const novas = parseJsonArray(p.imagens).filter(i => i !== url);
   db.prepare('UPDATE produtos SET imagens=? WHERE id=?').run(JSON.stringify(novas), req.params.id);
   res.json({ imagens: novas });
 });
 
-// Upload de vídeo curto → Cloudinary
+// Upload de vídeo → Cloudinary
 app.post('/api/produtos/:id/videos', uploadVideo.single('video'), (req, res) => {
   const p = db.prepare('SELECT videos FROM produtos WHERE id=?').get(req.params.id);
   if (!p) return res.status(404).json({ error: 'Produto não encontrado' });
-  const existentes = JSON.parse(p.videos || '[]');
+  const existentes = parseJsonArray(p.videos);
   const nova = { tipo: 'upload', url: req.file.path };
   const todas = [...existentes, nova];
   db.prepare('UPDATE produtos SET videos=? WHERE id=?').run(JSON.stringify(todas), req.params.id);
   res.json({ videos: todas });
 });
 
-// Adicionar vídeo embed (YouTube / Instagram)
+// Vídeo embed (YouTube / link)
 app.post('/api/produtos/:id/videos/embed', (req, res) => {
-  const { url, tipo } = req.body; // tipo: 'youtube' | 'instagram'
+  const { url, tipo } = req.body;
   const p = db.prepare('SELECT videos FROM produtos WHERE id=?').get(req.params.id);
   if (!p) return res.status(404).json({ error: 'Produto não encontrado' });
-  const existentes = JSON.parse(p.videos || '[]');
+  const existentes = parseJsonArray(p.videos);
   const nova = { tipo: tipo || 'youtube', url };
   const todas = [...existentes, nova];
   db.prepare('UPDATE produtos SET videos=? WHERE id=?').run(JSON.stringify(todas), req.params.id);
@@ -269,7 +279,7 @@ app.delete('/api/produtos/:id/videos', async (req, res) => {
   const { url } = req.body;
   const p = db.prepare('SELECT videos FROM produtos WHERE id=?').get(req.params.id);
   if (!p) return res.status(404).json({ error: 'Não encontrado' });
-  const lista = JSON.parse(p.videos || '[]');
+  const lista = parseJsonArray(p.videos);
   const item = lista.find(v => v.url === url);
   if (item && item.tipo === 'upload') {
     try {
@@ -445,7 +455,6 @@ app.post('/api/pagamento/criar', async (req, res) => {
   if (!itens || !itens.length) return res.status(400).json({ error: 'Carrinho vazio' });
 
   try {
-    // Salva pedido como pendente
     const r = db.prepare(
       'INSERT INTO pedidos_online (cliente_nome,cliente_email,cliente_tel,cliente_end,itens,total,status) VALUES (?,?,?,?,?,?,?)'
     ).run(
@@ -481,7 +490,6 @@ app.post('/api/pagamento/criar', async (req, res) => {
       },
     });
 
-    // Atualiza pedido com MP preference_id
     db.prepare('UPDATE pedidos_online SET mp_id=? WHERE id=?').run(result.id, pedidoId);
 
     res.json({
@@ -496,7 +504,7 @@ app.post('/api/pagamento/criar', async (req, res) => {
 
 // Webhook do Mercado Pago
 app.post('/api/pagamento/webhook', express.json(), async (req, res) => {
-  res.sendStatus(200); // Responde imediatamente
+  res.sendStatus(200);
   try {
     const { type, data } = req.body;
     if (type === 'payment' && data?.id) {
@@ -505,11 +513,10 @@ app.post('/api/pagamento/webhook', express.json(), async (req, res) => {
       const pedidoId = p.external_reference;
       const status = p.status === 'approved' ? 'pago' : p.status === 'rejected' ? 'cancelado' : 'pendente';
       db.prepare('UPDATE pedidos_online SET mp_status=?,status=? WHERE id=?').run(p.status, status, pedidoId);
-      // Se aprovado, cria venda automaticamente no CRM
       if (p.status === 'approved') {
         const pedido = db.prepare('SELECT * FROM pedidos_online WHERE id=?').get(pedidoId);
         if (pedido) {
-          const itens = JSON.parse(pedido.itens || '[]');
+          const itens = parseJsonArray(pedido.itens);
           for (const item of itens) {
             const r2 = db.prepare(
               'INSERT INTO vendas (cliente_nome,cliente_tel,cliente_end,produto_id,produto_nome,tamanho,cor,quantidade,preco_unit,total,pagamento,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
@@ -524,7 +531,7 @@ app.post('/api/pagamento/webhook', express.json(), async (req, res) => {
         }
       }
     }
-  } catch (e) { console.error('Webhook error:', e.message); }
+  } catch (e) { console.error('Webhook MP error:', e.message); }
 });
 
 // Consultar pedido online
@@ -547,6 +554,7 @@ app.get('/api/dashboard', (req, res) => {
     faturamento:       db.prepare("SELECT COALESCE(SUM(total),0) as t FROM vendas WHERE status='pago'").get().t,
     envios_pendentes:  db.prepare("SELECT COUNT(*) as c FROM envios WHERE status NOT IN ('entregue')").get().c,
     pedidos_online:    db.prepare("SELECT COUNT(*) as c FROM pedidos_online WHERE status='pago'").get().c,
+    sincronizados_ns:  db.prepare("SELECT COUNT(*) as c FROM produtos WHERE ns_id IS NOT NULL AND ns_id != ''").get().c,
     vendas_recentes:   db.prepare(`SELECT v.*, e.status as env_status FROM vendas v
                                    LEFT JOIN envios e ON v.id=e.venda_id
                                    ORDER BY v.id DESC LIMIT 8`).all(),
